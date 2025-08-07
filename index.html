@@ -266,12 +266,15 @@
   };
 
   function getStage(category, days) {
-    const stages = stageConfig[category];
+    // Quita el código numérico al inicio
+    const catName = category.replace(/^\d+\s*/, '');
+    const stages = stageConfig[catName];
     if (!stages) return 'Desconocida';
-    if (days >= stages.etapa1) return 'Etapa 1';
-    if (days >= stages.etapa2) return 'Etapa 2';
-    if (days >= stages.etapa3) return 'Etapa 3';
-    return 'Desconocida';
+    if (days <= 0) return 'MERMA';
+    if (days <= stages.etapa3) return 'ETAPA 3';
+    if (days <= stages.etapa2) return 'ETAPA 2';
+    if (days <= stages.etapa1) return 'ETAPA 1';
+    return '';
   }
 </script>
   <script>
@@ -518,49 +521,93 @@
         '11227 YOGHURT': 20
       });
       const [showSettings, setShowSettings] = React.useState(false);
+      const [user, setUser] = React.useState(null);
+
+      // Escuchar cambios de autenticación
+      React.useEffect(() => {
+        const unsubscribe = firebase.auth().onAuthStateChanged(setUser);
+        return () => unsubscribe();
+      }, []);
+
+      // Función para iniciar sesión con Google
+      const loginWithGoogle = () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider);
+      };
+
+      // Función para cerrar sesión
+      const logout = () => {
+        firebase.auth().signOut();
+      };
 
       // Efecto para cargar datos del localStorage al iniciar
       React.useEffect(() => {
-        const savedProducts = localStorage.getItem('products');
-        const savedDarkMode = localStorage.getItem('darkMode');
-        const savedCategoryAlerts = localStorage.getItem('categoryAlerts');
-        
-        if (savedProducts) setProducts(JSON.parse(savedProducts));
-        if (savedDarkMode) setDarkMode(savedDarkMode === 'true');
-        if (savedCategoryAlerts) setCategoryAlerts(JSON.parse(savedCategoryAlerts));
-        
-        // Solicitar permisos para notificaciones
-        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-          Notification.requestPermission();
-        }
-        
-        // Aplicar modo oscuro al body
-        if (savedDarkMode === 'true') {
-          document.body.classList.add('dark');
-        } else {
-          document.body.classList.remove('dark');
-        }
-      }, []);
-      
-      // Efecto para guardar productos en localStorage cuando cambian
-      React.useEffect(() => {
-        localStorage.setItem('products', JSON.stringify(products));
-      }, [products]);
-      
-      // Efecto para guardar configuración de modo oscuro
-      React.useEffect(() => {
-        localStorage.setItem('darkMode', darkMode);
-        if (darkMode) {
-          document.body.classList.add('dark');
-        } else {
-          document.body.classList.remove('dark');
-        }
-      }, [darkMode]);
-      
-      // Efecto para guardar configuración de alertas
-      React.useEffect(() => {
-        localStorage.setItem('categoryAlerts', JSON.stringify(categoryAlerts));
-      }, [categoryAlerts]);
+  const load = async () => {
+    const savedProducts = await idbKeyval.get('products');
+    const savedDarkMode = await idbKeyval.get('darkMode');
+    const savedCategoryAlerts = await idbKeyval.get('categoryAlerts');
+
+    if (savedProducts) setProducts(savedProducts);
+    if (savedDarkMode !== undefined) setDarkMode(savedDarkMode);
+    if (savedCategoryAlerts) setCategoryAlerts(savedCategoryAlerts);
+
+    // Solicitar permisos para notificaciones
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+
+    // Aplicar modo oscuro al body
+    if (savedDarkMode) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  };
+  load();
+}, []);
+
+// Cargar productos desde Firebase al iniciar
+React.useEffect(() => {
+  const productsRef = db.ref('products');
+  productsRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      // Convierte el objeto en array
+      setProducts(Object.values(data));
+    } else {
+      setProducts([]);
+    }
+  });
+  return () => productsRef.off();
+}, []);
+
+// Guardar productos en Firebase cuando cambian
+React.useEffect(() => {
+  // Guarda como objeto con id como clave
+  const productsObj = {};
+  products.forEach(p => { productsObj[p.id] = p; });
+  db.ref('products').set(productsObj);
+}, [products]);
+
+// Efecto para guardar productos en IndexedDB cuando cambian
+React.useEffect(() => {
+  idbKeyval.set('products', products);
+}, [products]);
+
+// Efecto para guardar configuración de modo oscuro
+React.useEffect(() => {
+  idbKeyval.set('darkMode', darkMode);
+  if (darkMode) {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+}, [darkMode]);
+
+// Efecto para guardar configuración de alertas
+React.useEffect(() => {
+  idbKeyval.set('categoryAlerts', categoryAlerts);
+}, [categoryAlerts]);
       
       // Efecto para verificar productos próximos a vencer y mostrar notificaciones
       React.useEffect(() => {
@@ -1191,18 +1238,10 @@ const ProductFormModal = () => {
       };
       
       function getProductStage(product) {
-  // Extrae solo el nombre de la categoría (después del primer espacio)
-  const catName = product.category.replace(/^\d+\s*/, '');
-  const config = stageConfig[catName] || { etapa1: 90, etapa2: 60, etapa3: 30 };
   const today = new Date();
   const expDate = new Date(product.expirationDate);
   const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-
-  if (days <= 0) return "MERMA";
-  if (days <= config.etapa3) return "ETAPA 3";
-  if (days <= config.etapa2) return "ETAPA 2";
-  if (days <= config.etapa1) return "ETAPA 1";
-  return "";
+  return getStage(product.category, days);
 }
       
       return (
@@ -1346,6 +1385,22 @@ const ProductFormModal = () => {
           
           {/* Modal de configuración */}
           {showSettings && <SettingsModal />}
+
+          {/* Botones de inicio/cierre de sesión */}
+          <div className="fixed top-4 right-4 z-20">
+            {!user ? (
+              <button onClick={loginWithGoogle} className="px-4 py-2 bg-blue-600 text-white rounded">
+                Iniciar sesión con Google
+              </button>
+            ) : (
+              <div className="flex items-center">
+                <span className="text-gray-800 dark:text-white mr-2">Bienvenido, {user.displayName}</span>
+                <button onClick={logout} className="px-4 py-2 bg-red-600 text-white rounded">
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       );
     };
@@ -1354,5 +1409,26 @@ const ProductFormModal = () => {
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/idb-keyval-iife.min.js"></script>
+  <!-- Firebase App (core) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<!-- Firebase Database -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- Firebase Auth -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+  // Tu configuración de Firebase (reemplaza con la tuya)
+  const firebaseConfig = {
+  apiKey: "AIzaSyCUMF90WwpK54BfFF5T-GG5ihr67tqCOwo",
+  authDomain: "control-de-caducidades-f4b7b.firebaseapp.com",
+  projectId: "control-de-caducidades-f4b7b",
+  storageBucket: "control-de-caducidades-f4b7b.firebasestorage.app",
+  messagingSenderId: "1057740841728",
+  appId: "1:1057740841728:web:9ba4ed5342e2d11b6ec9e5",
+  measurementId: "G-4CK6YQDS3B"
+};
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+</script>
 </body>
 </html>
