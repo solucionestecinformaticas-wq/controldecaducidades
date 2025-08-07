@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de Caducidades</title>
+  <!-- React y ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel para JSX -->
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- JSPDF para exportar a PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+  <style id="app-style">
+    body {
+      transition: background-color 0.3s, color 0.3s;
+      min-height: 100vh;
+    }
+    .dark {
+      background-color: #1a202c !important;
+      color: #fff !important;
+    }
+    .dark .bg-gray-100 {
+      background-color: #2d3748 !important;
+    }
+    .dark .text-gray-700,
+    .dark .text-gray-600,
+    .dark .text-gray-900 {
+      color: #b3b3b3 !important;
+    }
+    .dark .text-gray-400,
+    .dark .text-gray-300,
+    .dark .text-gray-200 {
+      color: #e5e7eb !important;
+    }
+    .dark .text-gray-800,
+    .dark .placeholder-gray-500 {
+      color: #b3b3b3 !important;
+    }
+
+    .card {
+      transition: transform 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .status-fresh {
+      background-color: #d1fae5; /* bg-green-100 */
+      border-left: 4px solid #22c55e; /* border-green-500 */
+    }
+    .dark .status-fresh {
+      background-color: #065f46 !important; /* dark:bg-green-900 */
+    }
+
+    .status-warning {
+      background-color: #fef9c3; /* bg-yellow-100 */
+      border-left: 4px solid #eab308; /* border-yellow-500 */
+    }
+    .dark .status-warning {
+      background-color: #78350f !important; /* dark:bg-yellow-900 */
+    }
+
+    .status-expired {
+      background-color: #fecaca; /* bg-red-100 */
+      border-left: 4px solid #ef4444; /* border-red-500 */
+    }
+    .dark .status-expired {
+      background-color: #7f1d1d !important; /* dark:bg-red-900 */
+    }
+
+    .floating-button {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 4rem;
+      height: 4rem;
+      background-color: #2563eb; /* bg-blue-600 */
+      color: #fff;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 10;
+    }
+    .floating-button:hover {
+      background-color: #1d4ed8; /* hover:bg-blue-700 */
+      transform: scale(1.1);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .modal {
+      transition: opacity 0.3s ease;
+    }
+
+    /* Animaciones */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    /* Estilos para el toggle del modo oscuro */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #68D391;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #68D391;
+    }
+
+    .category-slider {
+      scrollbar-width: thin;
+      -ms-overflow-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .category-slider::-webkit-scrollbar {
+      display: none;
+    }
+
+    .category-button {
+      transition: all 0.2s ease;
+      display: block;
+      width: 100%;
+      margin-bottom: 4px;
+      text-align: left;
+    }
+
+    .settings-categories-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+
+<!-- Move JS config out of style into a script tag -->
+<script type="text/javascript">
+  const stageConfig = {
+    "10A_TRACTO ALIMENTARIO Y METABOLISMO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10B_SANGRE Y APARATO HEMATOPOYETICO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10C_SISTEMA CARDIOVASCULAR": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10D_DERMATOLOGICOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10E ESPECIALIZADOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10G_SIST GENITOURINARIO Y HORMONAS SEX": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10H_PREP HORM SIST (EXCLUY HORMONAS SEX)": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10J_ANTIINFECCIOSOS SISTEMICOS GENERALES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10K_SOLUCIONES HOSPITALARIAS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10L_ANTINEOPLASICOS Y AGTS INMUNOMODUL": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10M_SISTEMA MUSCULO ESQUELETICO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10N_SISTEMA NERVIOSO CENTRAL": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10P_PARASITOLOGIA": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10R_SISTEMA RESPIRATORIO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10S_ORGANOS DE LOS SENTIDOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10T AGENTES DE DIAGNOSTICO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10V_VARIOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10W_PRODUCTOS NATURALES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10Y REFRIGERADOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "10Z CONTROLADOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11A_RESPIRATORIOS OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11B_ANALGESICOS OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11C_GASTROINTEST OTC (TRACTO ALIMENT)": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11D_SUEROS ORALES (SUSTIT ELECTROL ORAL)": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11E_GINECOLOGICOS OTC Y PROD SEX": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11F_DERMATOLOGICOS OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11G_OFTALMOLOGICOS Y OTICOS OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11H_VITAMINAS Y MINERALES OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11I_NUTRICIONALES OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11K_MATERIAL Y ACCESORIOS PARA CURACION": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11M ORTOPEDICOS ACC TERAP Y ME": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11N_PRUEBAS Y TEST DE DIAGNOSTICO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11P_CUIDADO DE LOS PIES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11R_PRODUCTOS NATURALES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11S_PRODUCTOS HOMEOPATICOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "11T_OTC VARIOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "ABARROTES GOURMET": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "ACEITES COMESTIBLES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "ADEREZOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "AGUA Y HIELO": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "ALIMENTOS REFRIGERADOS": { etapa1: 10, etapa2: 5, etapa3: 2 },
+    "AZUCAR Y SUSTITUTOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "BARRAS DE CEREAL": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "BEBES ALIMENTOS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "BEBES ALIMENTOS.": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "BEBIDAS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "BOTANAS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "CAFES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "CEREALES": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "Cereales Galletas Y Panes": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "CERVEZA": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "CHILES ENVASADOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "CHOCOLATES.": { etapa1: 45, etapa2: 30, etapa3: 15 },
+    "CHORIZOS Y LONGANIZAS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "COMIDAS CONGELADAS": { etapa1: 30, etapa2: 14, etapa3: 5 },
+    "COMIDAS ENVASADAS Y ENTREMESES": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "CONCENTRADOS PARA BEBIDAS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "CONSOMES Y CALDOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "CREMAS Y JOCOQUES": { etapa1: 10, etapa2: 5, etapa3: 2 },
+    "CREMAS, SOPAS, PASTAS Y PURES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "DELI GOURMET": { etapa1: 15, etapa2: 9, etapa3: 5 },
+    "DESPENSAS.": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "DULCERIA": { etapa1: 45, etapa2: 30, etapa3: 15 },
+    "DULCERIA.": { etapa1: 45, etapa2: 30, etapa3: 15 },
+    "ESPECIAS Y CONDIMENTOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "FRIJOLES Y PLATILLOS MEXICANOS ENVASADOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "GALLETAS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "GELATINAS Y POSTRES": { etapa1: 10, etapa2: 5, etapa3: 2 },
+    "GRANOS Y SEMILLAS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "HARINAS Y COMPLEMENTOS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "HELADOS Y POSTRES": { etapa1: 30, etapa2: 14, etapa3: 5 },
+    "JAMONES": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "JUGOS Y NECTARES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "LECHES": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "LECHES ULTRAPASTEURIZADAS": { etapa1: 30, etapa2: 14, etapa3: 5 },
+    "LECHES Y BEBIDAS REFRIGERADAS": { etapa1: 6, etapa2: 3, etapa3: 1 },
+    "MANTEQUILLAS Y MARGARINAS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "MASCOTAS": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "MASCOTAS.": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "MEDICAMENTOS OTC": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "MEDICINA ETICA": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "MERMELADAS, JALEAS, MIELES Y CAJETAS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "MOLES Y ADOBOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "PESCADOS ENVASADOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "PESCADOS Y MARISCOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "PINA REBANADAS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "PLAN DE FIDELIDAD MG": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "POSTRES": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "QUESOS": { etapa1: 15, etapa2: 10, etapa3: 2 },
+    "REFRESCOS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "SABORIZANTES PARA LECHE Y CAFE": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "SALCHICHAS": { etapa1: 20, etapa2: 15, etapa3: 10 },
+    "SALSAS ENVASADAS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "SIN CATEGORIA  FARM": { etapa1: 90, etapa2: 60, etapa3: 30 },
+    "SIN CATEGORIA (PRO ESP)": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "TARJETAS Y SORTEOS DE AYUDA": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "TES DE INFUSION": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "TOCINOS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "TORTILLAS Y TOSTADAS EMPACADAS": { etapa1: 30, etapa2: 20, etapa3: 10 },
+    "VERDURAS Y VEGETALES ENVASADOS": { etapa1: 40, etapa2: 29, etapa3: 14 },
+    "YOGHURT": { etapa1: 20, etapa2: 15, etapa3: 10 }
+  };
+
+  function getStage(category, days) {
+    const stages = stageConfig[category];
+    if (!stages) return 'Desconocida';
+    if (days >= stages.etapa1) return 'Etapa 1';
+    if (days >= stages.etapa2) return 'Etapa 2';
+    if (days >= stages.etapa3) return 'Etapa 3';
+    return 'Desconocida';
+  }
+</script>
+  <script>
+    // Configuración de TailwindCSS
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary': '#2563eb', // bg-blue-600
+            'secondary': '#1d4ed8', // hover:bg-blue-700
+            'success': '#22c55e', // bg-green-500
+            'warning': '#eab308', // bg-yellow-500
+            'danger': '#ef4444', // bg-red-500
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+  <div id="root"></div>
+
+  <script type="text/babel" id="app-script">
+    // Componente principal
+    const App = () => {
+      const [darkMode, setDarkMode] = React.useState(true);
+      const [products, setProducts] = React.useState([]);
+      const [categories, setCategories] = React.useState(['11076 10A_TRACTO ALIMENTARIO Y METABOLISMO',
+'11077 10B_SANGRE Y APARATO HEMATOPOYETICO',
+'11078 10C_SISTEMA CARDIOVASCULAR',
+'11079 10D_DERMATOLOGICOS',
+'11296 10E ESPECIALIZADOS',
+'11080 10G_SIST GENITOURINARIO Y HORMONAS SEX',
+'11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX)',
+'11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES',
+'11083 10K_SOLUCIONES HOSPITALARIAS',
+'11084 10L_ANTINEOPLASICOS Y AGTS INMUNOMODUL',
+'11085 10M_SISTEMA MUSCULO ESQUELETICO',
+'11086 10N_SISTEMA NERVIOSO CENTRAL',
+'11087 10P_PARASITOLOGIA',
+'11088 10R_SISTEMA RESPIRATORIO',
+'11089 10S_ORGANOS DE LOS SENTIDOS',
+'11090 10T AGENTES DE DIAGNOSTICO',
+'11091 10V_VARIOS',
+'11092 10W_PRODUCTOS NATURALES',
+'11297 10Y REFRIGERADOS',
+'11298 10Z CONTROLADOS',
+'11094 11A_RESPIRATORIOS OTC',
+'11095 11B_ANALGESICOS OTC',
+'11096 11C_GASTROINTEST OTC (TRACTO ALIMENT)',
+'11097 11D_SUEROS ORALES (SUSTIT ELECTROL ORAL)',
+'11098 11E_GINECOLOGICOS OTC Y PROD SEX',
+'11099 11F_DERMATOLOGICOS OTC',
+'11100 11G_OFTALMOLOGICOS Y OTICOS OTC',
+'11101 11H_VITAMINAS Y MINERALES OTC',
+'11102 11I_NUTRICIONALES OTC',
+'11104 11K_MATERIAL Y ACCESORIOS PARA CURACION',
+'11106 11M ORTOPEDICOS ACC TERAP Y ME',
+'11107 11N_PRUEBAS Y TEST DE DIAGNOSTICO',
+'11109 11P_CUIDADO DE LOS PIES',
+'11110 11R_PRODUCTOS NATURALES',
+'11111 11S_PRODUCTOS HOMEOPATICOS',
+'11112 11T_OTC VARIOS',
+'11017 ABARROTES GOURMET',
+'11019 ACEITES COMESTIBLES',
+'11010 ADEREZOS',
+'11033 AGUA Y HIELO',
+'11228 ALIMENTOS REFRIGERADOS',
+'11022 AZUCAR Y SUSTITUTOS',
+'11018 BARRAS DE CEREAL',
+'11249 BEBES ALIMENTOS',
+'11307 BEBES ALIMENTOS',
+'11348 BEBES ALIMENTOS.',
+'11035 BEBIDAS',
+'11367 BEBIDAS',
+'11032 BOTANAS',
+'11023 CAFES',
+'11013 CEREALES',
+'11003 Cereales Galletas Y Panes',
+'11055 CERVEZA',
+'11005 CHILES ENVASADOS',
+'11313 CHOCOLATES.',
+'11209 CHORIZOS Y LONGANIZAS',
+'11231 COMIDAS CONGELADAS',
+'11009 COMIDAS ENVASADAS Y ENTREMESES',
+'11034 CONCENTRADOS PARA BEBIDAS',
+'11008 CONSOMES Y CALDOS',
+'11224 CREMAS Y JOCOQUES',
+'11021 CREMAS, SOPAS, PASTAS Y PURES',
+'11208 DELI GOURMET',
+'11310 DESPENSAS.',
+'11031 DULCERIA',
+'11311 DULCERIA.',
+'11001 ESPECIAS Y CONDIMENTOS',
+'11004 FRIJOLES Y PLATILLOS MEXICANOS ENVASADOS',
+'11014 GALLETAS',
+'11225 GELATINAS Y POSTRES',
+'11020 GRANOS Y SEMILLAS',
+'11027 HARINAS Y COMPLEMENTOS',
+'11230 HELADOS Y POSTRES',
+'11211 JAMONES',
+'11029 JUGOS Y NECTARES',
+'11369 JUGOS Y NECTARES',
+'11369 JUGOS Y NECTARES',
+'11377 LECHES',
+'11024 LECHES',
+'11229 LECHES ULTRAPASTEURIZADAS',
+'11222 LECHES Y BEBIDAS REFRIGERADAS',
+'11226 MANTEQUILLAS Y MARGARINAS',
+'11037 MASCOTAS',
+'11315 MASCOTAS.',
+'91 MEDICAMENTOS OTC',
+'100 MEDICINA ETICA',
+'11016 MERMELADAS, JALEAS, MIELES Y CAJETAS',
+'11012 MOLES Y ADOBOS',
+'11011 PESCADOS ENVASADOS',
+'11221 PESCADOS Y MARISCOS',
+'11015 PINA REBANADAS',
+'11114 PLAN DE FIDELIDAD MG',
+'11028 POSTRES',
+'11223 QUESOS',
+'11030 REFRESCOS',
+'11026 SABORIZANTES PARA LECHE Y CAFE',
+'11212 SALCHICHAS',
+'11007 SALSAS ENVASADAS',
+'11113 SIN CATEGORIA  FARM',
+'11241 SIN CATEGORIA (PRO ESP)',
+'11201 TARJETAS Y SORTEOS DE AYUDA',
+'11025 TES DE INFUSION',
+'11210 TOCINOS',
+'11002 TORTILLAS Y TOSTADAS EMPACADAS',
+'11006 VERDURAS Y VEGETALES ENVASADOS',
+'11227 YOGHURT']);
+      const [showModal, setShowModal] = React.useState(false);
+      const [currentProduct, setCurrentProduct] = React.useState(null);
+      const [searchTerm, setSearchTerm] = React.useState('');
+      const [filterCategory, setFilterCategory] = React.useState('');
+      const [categoryAlerts, setCategoryAlerts] = React.useState({
+        '11076 10A_TRACTO ALIMENTARIO Y METABOLISMO': 90,
+        '11077 10B_SANGRE Y APARATO HEMATOPOYETICO': 90,
+        '11078 10C_SISTEMA CARDIOVASCULAR': 90,
+        '11079 10D_DERMATOLOGICOS': 90,
+        '11296 10E ESPECIALIZADOS': 90,
+        '11080 10G_SIST GENITOURINARIO Y HORMONAS SEX': 90,
+        '11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX)': 90,
+        '11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES': 90,
+        '11083 10K_SOLUCIONES HOSPITALARIAS': 90,
+        '11084 10L_ANTINEOPLASICOS Y AGTS INMUNOMODUL': 90,
+        '11085 10M_SISTEMA MUSCULO ESQUELETICO': 90,
+        '11086 10N_SISTEMA NERVIOSO CENTRAL': 90,
+        '11087 10P_PARASITOLOGIA': 90,
+        '11088 10R_SISTEMA RESPIRATORIO': 90,
+        '11089 10S_ORGANOS DE LOS SENTIDOS': 90,
+        '11090 10T AGENTES DE DIAGNOSTICO': 90,
+        '11091 10V_VARIOS': 90,
+        '11092 10W_PRODUCTOS NATURALES': 90,
+        '11297 10Y REFRIGERADOS': 90,
+        '11298 10Z CONTROLADOS': 90,
+        '11094 11A_RESPIRATORIOS OTC': 90,
+        '11095 11B_ANALGESICOS OTC': 90,
+        '11096 11C_GASTROINTEST OTC (TRACTO ALIMENT)': 90,
+        '11097 11D_SUEROS ORALES (SUSTIT ELECTROL ORAL)': 90,
+        '11098 11E_GINECOLOGICOS OTC Y PROD SEX': 90,
+        '11099 11F_DERMATOLOGICOS OTC': 90,
+        '11100 11G_OFTALMOLOGICOS Y OTICOS OTC': 90,
+        '11101 11H_VITAMINAS Y MINERALES OTC': 90,
+        '11102 11I_NUTRICIONALES OTC': 90,
+        '11104 11K_MATERIAL Y ACCESORIOS PARA CURACION': 90,
+        '11106 11M ORTOPEDICOS ACC TERAP Y ME': 90,
+        '11107 11N_PRUEBAS Y TEST DE DIAGNOSTICO': 90,
+        '11109 11P_CUIDADO DE LOS PIES': 90,
+        '11110 11R_PRODUCTOS NATURALES': 90,
+        '11111 11S_PRODUCTOS HOMEOPATICOS': 90,
+        '11112 11T_OTC VARIOS': 90,
+        '11017 ABARROTES GOURMET': 40,
+        '11019 ACEITES COMESTIBLES': 90,
+        '11010 ADEREZOS': 40,
+        '11033 AGUA Y HIELO': 90,
+        '11228 ALIMENTOS REFRIGERADOS': 10,
+        '11022 AZUCAR Y SUSTITUTOS': 90,
+        '11018 BARRAS DE CEREAL': 40,
+        '11249 BEBES ALIMENTOS': 30,
+        '11307 BEBES ALIMENTOS': 30,
+        '11348 BEBES ALIMENTOS.': 30,
+        '11035 BEBIDAS': 90,
+        '11367 BEBIDAS': 90,
+        '11032 BOTANAS': 30,
+        '11023 CAFES': 90,
+        '11013 CEREALES': 40,
+        '11003 Cereales Galletas Y Panes': 40,
+        '11055 CERVEZA': 40,
+        '11005 CHILES ENVASADOS': 40,
+        '11313 CHOCOLATES.': 45,
+        '11209 CHORIZOS Y LONGANIZAS': 30,
+        '11231 COMIDAS CONGELADAS': 30,
+        '11009 COMIDAS ENVASADAS Y ENTREMESES': 40,
+        '11034 CONCENTRADOS PARA BEBIDAS': 90,
+        '11008 CONSOMES Y CALDOS': 40,
+        '11224 CREMAS Y JOCOQUES': 10,
+        '11021 CREMAS, SOPAS, PASTAS Y PURES': 90,
+        '11208 DELI GOURMET': 15,
+        '11310 DESPENSAS.': 90,
+        '11031 DULCERIA': 45,
+        '11311 DULCERIA.': 45,
+        '11001 ESPECIAS Y CONDIMENTOS': 40,
+        '11004 FRIJOLES Y PLATILLOS MEXICANOS ENVASADOS': 40,
+        '11014 GALLETAS': 40,
+        '11225 GELATINAS Y POSTRES': 10,
+        '11020 GRANOS Y SEMILLAS': 90,
+        '11027 HARINAS Y COMPLEMENTOS': 90,
+        '11230 HELADOS Y POSTRES': 30,
+        '11211 JAMONES': 30,
+        '11029 JUGOS Y NECTARES': 90,
+        '11369 JUGOS Y NECTARES': 90,
+        '11369 JUGOS Y NECTARES': 90,
+        '11377 LECHES': 90,
+        '11024 LECHES': 90,
+        '11229 LECHES ULTRAPASTEURIZADAS': 30,
+        '11222 LECHES Y BEBIDAS REFRIGERADAS': 6,
+        '11226 MANTEQUILLAS Y MARGARINAS': 30,
+        '11037 MASCOTAS': 90,
+        '11315 MASCOTAS.': 90,
+        '91 MEDICAMENTOS OTC': 90,
+        '100 MEDICINA ETICA': 90,
+        '11016 MERMELADAS, JALEAS, MIELES Y CAJETAS': 40,
+        '11012 MOLES Y ADOBOS': 40,
+        '11011 PESCADOS ENVASADOS': 40,
+        '11221 PESCADOS Y MARISCOS': 40,
+        '11015 PINA REBANADAS': 40,
+        '11114 PLAN DE FIDELIDAD MG': 30,
+        '11028 POSTRES': 40,
+        '11223 QUESOS': 15,
+        '11030 REFRESCOS': 30,
+        '11026 SABORIZANTES PARA LECHE Y CAFE': 90,
+        '11212 SALCHICHAS': 20,
+        '11007 SALSAS ENVASADAS': 40,
+        '11113 SIN CATEGORIA  FARM': 90,
+        '11241 SIN CATEGORIA (PRO ESP)': 30,
+        '11201 TARJETAS Y SORTEOS DE AYUDA': 30,
+        '11025 TES DE INFUSION': 40,
+        '11210 TOCINOS': 30,
+        '11002 TORTILLAS Y TOSTADAS EMPACADAS': 30,
+        '11006 VERDURAS Y VEGETALES ENVASADOS': 40,
+        '11227 YOGHURT': 20
+      });
+      const [showSettings, setShowSettings] = React.useState(false);
+
+      // Efecto para cargar datos del localStorage al iniciar
+      React.useEffect(() => {
+        const savedProducts = localStorage.getItem('products');
+        const savedDarkMode = localStorage.getItem('darkMode');
+        const savedCategoryAlerts = localStorage.getItem('categoryAlerts');
+        
+        if (savedProducts) setProducts(JSON.parse(savedProducts));
+        if (savedDarkMode) setDarkMode(savedDarkMode === 'true');
+        if (savedCategoryAlerts) setCategoryAlerts(JSON.parse(savedCategoryAlerts));
+        
+        // Solicitar permisos para notificaciones
+        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+        
+        // Aplicar modo oscuro al body
+        if (savedDarkMode === 'true') {
+          document.body.classList.add('dark');
+        } else {
+          document.body.classList.remove('dark');
+        }
+      }, []);
+      
+      // Efecto para guardar productos en localStorage cuando cambian
+      React.useEffect(() => {
+        localStorage.setItem('products', JSON.stringify(products));
+      }, [products]);
+      
+      // Efecto para guardar configuración de modo oscuro
+      React.useEffect(() => {
+        localStorage.setItem('darkMode', darkMode);
+        if (darkMode) {
+          document.body.classList.add('dark');
+        } else {
+          document.body.classList.remove('dark');
+        }
+      }, [darkMode]);
+      
+      // Efecto para guardar configuración de alertas
+      React.useEffect(() => {
+        localStorage.setItem('categoryAlerts', JSON.stringify(categoryAlerts));
+      }, [categoryAlerts]);
+      
+      // Efecto para verificar productos próximos a vencer y mostrar notificaciones
+      React.useEffect(() => {
+        const checkExpiringProducts = () => {
+          const today = new Date();
+          
+          products.forEach(product => {
+            const expDate = new Date(product.expirationDate);
+            const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+            
+            // Mostrar notificación si está por vencer según la configuración de categoría
+            if (daysUntilExpiry > 0 && daysUntilExpiry <= categoryAlerts[product.category]) {
+              if (Notification.permission === 'granted') {
+                new Notification('¡Producto por vencer!', {
+                  body: `${product.name} vencerá en ${daysUntilExpiry} días`,
+                  icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972431.png'
+                });
+              }
+            }
+          });
+        };
+        
+        // Verificar al cargar y cada 24 horas
+        checkExpiringProducts();
+        const interval = setInterval(checkExpiringProducts, 86400000);
+        
+        return () => clearInterval(interval);
+      }, [products, categoryAlerts]);
+      
+      // Función para determinar el estado del producto (fresco, por vencer, vencido)
+      const getProductStatus = (expirationDate) => {
+        const today = new Date();
+        const expDate = new Date(expirationDate);
+        const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry <= 0) return 'expired';
+        
+        // Verificar si está en periodo de alerta según su categoría
+        const product = products.find(p => p.expirationDate === expirationDate);
+        if (product && daysUntilExpiry <= categoryAlerts[product.category]) {
+          return 'warning';
+        }
+        
+        return 'fresh';
+      };
+      
+      // Función para agregar o editar un producto
+      const saveProduct = (product) => {
+        if (currentProduct) {
+          // Editar existente
+          const updatedProducts = products.map(p => 
+            p.id === currentProduct.id ? {...product, id: currentProduct.id} : p
+          );
+          setProducts(updatedProducts);
+        } else {
+          // Agregar nuevo
+          const newProduct = {
+            ...product,
+            id: Date.now().toString()
+          };
+          setProducts([...products, newProduct]);
+        }
+        
+        setShowModal(false);
+        setCurrentProduct(null);
+      };
+      
+      // Función para eliminar un producto
+      const deleteProduct = (id) => {
+        setProducts(products.filter(product => product.id !== id));
+      };
+      
+      // Función para exportar a CSV
+      const exportToCSV = () => {
+        if (products.length === 0) {
+          alert('No hay productos para exportar');
+          return;
+        }
+        
+        // Crear contenido CSV
+        const headers = ['Nombre', 'Categoría', 'Cantidad', 'Fecha de Vencimiento', 'Código de Barras'];
+        let csvContent = headers.join(',') + '\n';
+        
+        products.forEach(product => {
+          const row = [
+            `"${product.name}"`, 
+            `"${product.category}"`,
+            product.quantity,
+            product.expirationDate,
+            `"${product.barcode || ''}"`
+          ].join(',');
+          csvContent += row + '\n';
+        });
+        
+        // Crear y descargar archivo CSV
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `inventario_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      
+      // Función para importar CSV
+      const importFromCSV = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          const lines = content.split('\n');
+          
+          // Omitir la primera línea (encabezados)
+          const importedProducts = [];
+          
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            
+            const values = lines[i].split(',');
+            
+            // Limpiar comillas
+            const cleanValue = (value) => value.replace(/^"|"$/g, '');
+            
+            importedProducts.push({
+              id: Date.now().toString() + i,
+              name: cleanValue(values[0]),
+              category: cleanValue(values[1]),
+              quantity: parseInt(values[2]),
+              expirationDate: values[3],
+              barcode: values[4] ? cleanValue(values[4]) : ''
+            });
+          }
+          
+          setProducts([...products, ...importedProducts]);
+        };
+        
+        reader.readAsText(file);
+      };
+      
+      // Función para exportar a PDF
+      const exportToPDF = () => {
+        if (products.length === 0) {
+          alert('No hay productos para exportar');
+          return;
+        }
+      
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+      
+        // Título
+        doc.setFontSize(18);
+        doc.text('Inventario de Productos', 14, 22);
+      
+        // Fecha
+        doc.setFontSize(11);
+        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
+      
+        // Tabla
+        const tableColumn = [
+          "Nombre",
+          "Categoría",
+          "Cantidad",
+          "Fecha de Vencimiento",
+          "Estado",
+          "Días Restantes",
+          "Etapa",
+          "Alerta (días)",
+          "Código de Barras"
+        ];
+        const tableRows = [];
+      
+        products.forEach(product => {
+          const status = getProductStatus(product.expirationDate);
+          const today = new Date();
+          const expDate = new Date(product.expirationDate);
+          const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+          const statusLabel =
+            status === 'fresh'
+              ? 'En buen estado'
+              : status === 'warning'
+              ? 'Por vencer'
+              : 'Vencido';
+      
+          tableRows.push([
+            product.name,
+            product.category,
+            product.quantity,
+            new Date(product.expirationDate).toLocaleDateString(),
+            statusLabel,
+            days > 0
+              ? `${days} día${days !== 1 ? 's' : ''}`
+              : days === 0
+              ? '¡Vence hoy!'
+              : 'Vencido',
+            getProductStage(product),
+            categoryAlerts[product.category] || categoryAlerts[catName],
+            product.barcode || ''
+          ]);
+        });
+      
+        // Generar tabla con jspdf-autotable
+        doc.autoTable({
+          head: [tableColumn],
+          body: tableRows,
+          startY: 35,
+          theme: 'striped',
+          styles: { overflow: 'linebreak', fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 'auto' } }
+        });
+      
+        // Guardar PDF
+        doc.save(`inventario_${new Date().toISOString().split('T')[0]}.pdf`);
+      };
+      
+      // Filtrar productos según búsqueda y categoría
+      const filteredProducts = products.filter(product => {
+        return (
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          (filterCategory === '' || product.category === filterCategory)
+        );
+      });
+      
+      // Componente de modal para agregar/editar producto
+const ProductFormModal = () => {
+        const [formData, setFormData] = React.useState({
+          name: (currentProduct && currentProduct.name) || '',
+          category: (currentProduct && currentProduct.category) || categories[0],
+          quantity: (currentProduct && currentProduct.quantity) || 1,
+          expirationDate: (currentProduct && currentProduct.expirationDate) || new Date().toISOString().split('T')[0],
+          barcode: (currentProduct && currentProduct.barcode) || '',
+          photo: (currentProduct && currentProduct.photo) || ''
+        });
+        const [scanning, setScanning] = React.useState(false);
+
+        React.useEffect(() => {
+          if (!scanning) return;
+          // Cargar QuaggaJS desde CDN si no está cargado
+          if (!window.Quagga) {
+            const script = document.createElement('script');
+            script.src = "https://unpkg.com/quagga@0.12.1/dist/quagga.min.js";
+            script.onload = startScanner;
+            document.body.appendChild(script);
+            return () => { document.body.removeChild(script); };
+          } else {
+            startScanner();
+          }
+          function startScanner() {
+            window.Quagga.init({
+              inputStream: {
+                type: "LiveStream",
+                constraints: {
+                  facingMode: "environment"
+                },
+                target: document.querySelector('#barcode-scanner')
+              },
+              decoder: {
+                readers: ["ean_reader", "ean_8_reader", "code_128_reader", "upc_reader"]
+              }
+            }, function(err) {
+              if (err) {
+                setScanning(false);
+                return;
+              }
+              window.Quagga.start();
+            });
+            window.Quagga.onDetected(data => {
+              setFormData(f => ({ ...f, barcode: data.codeResult.code }));
+              setScanning(false);
+              window.Quagga.stop();
+              window.Quagga.offDetected();
+            });
+          }
+          return () => {
+            if (window.Quagga) {
+              window.Quagga.stop();
+              window.Quagga.offDetected();
+            }
+          };
+        }, [scanning]);
+        
+        const handleChange = (e) => {
+          const { name, value } = e.target;
+          setFormData({
+            ...formData,
+            [name]: name === 'quantity' ? parseInt(value) : value
+          });
+        };
+        
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          saveProduct(formData);
+        };
+        // Manejar la foto
+        const handlePhotoChange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setFormData(f => ({ ...f, photo: ev.target.result }));
+          };
+          reader.readAsDataURL(file);
+        };
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 modal fade-in">
+            <div
+              className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md mx-4 slide-in flex flex-col"
+              style={{
+                maxHeight: '95vh',
+                minHeight: '0',
+              }}
+            >
+              <div className="overflow-y-auto flex-1" style={{ minHeight: 0, padding: '1.5rem' }}>
+                <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">
+                  {currentProduct ? 'Editar producto' : 'Agregar nuevo producto'}
+                </h2>
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Nombre</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Categoría</label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Cantidad</label>
+                    <input
+                      type="number"
+                      name="quantity"
+                      value={formData.quantity}
+                      onChange={handleChange}
+                      min="1"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Fecha de vencimiento</label>
+                    <input
+                      type="date"
+                      name="expirationDate"
+                      value={formData.expirationDate}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Código de barras (opcional)</label>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        name="barcode"
+                        value={formData.barcode}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        className="bg-gray-200 dark:bg-gray-600 px-4 rounded-r-md hover:bg-gray-300 dark:hover:bg-gray-500"
+                        title="Escanear código de barras"
+                        onClick={() => setScanning(true)}
+                      >
+                        <i className="fas fa-barcode"></i>
+                      </button>
+                    </div>
+                    {scanning && (
+                      <div id="barcode-scanner" className="mt-2 w-full h-48 bg-black rounded"></div>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-gray-700 dark:text-gray-300 mb-2">Foto del producto (tómala con la cámara)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoChange}
+                      className="block w-full text-gray-900 dark:text-gray-200"
+                    />
+                    <small className="text-gray-500 dark:text-gray-400 block mt-1">
+                      Puede tomar una foto con la cámara o seleccionar una imagen de su dispositivo. Si su navegador no soporta la opción de cámara, seleccione una imagen manualmente.
+                    </small>
+                    {formData.photo && (
+                      <img
+                        src={formData.photo}
+                        alt="Foto del producto"
+                        className="mt-2 rounded max-h-40 mx-auto"
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex justify-end space-x-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModal(false);
+                        setCurrentProduct(null);
+                      }}
+                      className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      {currentProduct ? 'Actualizar' : 'Agregar'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      // Componente modal de configuración de alertas
+      const SettingsModal = () => {
+        const [alertSettings, setAlertSettings] = React.useState({...categoryAlerts});
+        
+        const handleChange = (category, days) => {
+          setAlertSettings({
+            ...alertSettings,
+            [category]: parseInt(days)
+          });
+        };
+        
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          setCategoryAlerts(alertSettings);
+          setShowSettings(false);
+        };
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 modal fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 slide-in">
+              <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Configuración de alertas</h2>
+              
+              <form onSubmit={handleSubmit}>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Configure cuántos días antes desea recibir alertas para cada categoría de productos
+                </p>
+                
+                <div className="settings-categories-list scrollbar-hide">
+                  {categories.map(category => (
+                    <div key={category} className="mb-4">
+                      <label className="block text-gray-700 dark:text-gray-300 mb-2">{category}</label>
+                      <div className="flex items-center">
+                        <input
+                          type="number"
+                          value={alertSettings[category]}
+                          onChange={(e) => handleChange(category, e.target.value)}
+                          min="1"
+                          max="90"
+                          className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">días antes</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex justify-end space-x-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(false)}
+                    className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      };
+      
+      // Componente para cada tarjeta de producto
+      const ProductCard = ({ product }) => {
+        const status = getProductStatus(product.expirationDate);
+        
+        let statusClass = '';
+        let statusLabel = '';
+        
+        switch(status) {
+          case 'fresh':
+            statusClass = 'status-fresh';
+            statusLabel = 'En buen estado';
+            break;
+          case 'warning':
+            statusClass = 'status-warning';
+            statusLabel = 'Por vencer';
+            break;
+          case 'expired':
+            statusClass = 'status-expired';
+            statusLabel = 'Vencido';
+            break;
+          default:
+            statusClass = 'status-fresh';
+            statusLabel = 'En buen estado';
+        }
+        
+        return (
+          <div className={`card bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border-l-4 ${statusClass} mb-4`}>
+            <div className="flex flex-row items-center p-4">
+              {/* Imagen a la izquierda */}
+              {product.photo ? (
+                <img
+                  src={product.photo}
+                  alt={product.name}
+                  className="rounded max-h-32 max-w-[8rem] object-cover mr-4 border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                  style={{ width: '8rem', height: '8rem' }}
+                />
+              ) : (
+                <div className="flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded max-h-32 max-w-[8rem] mr-4" style={{ width: '8rem', height: '8rem' }}>
+                  <i className="fas fa-image text-4xl text-gray-400"></i>
+                </div>
+              )}
+
+              {/* Información a la derecha */}
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{product.name}</h3>
+                    <p className="text-gray-600 dark:text-gray-400">{product.category}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="inline-block px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                        {product.quantity} unidad{product.quantity !== 1 ? 'es' : ''}
+                      </span>
+                      <span className={`inline-block px-2 py-1 text-xs rounded ${
+                        status === 'fresh' ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200' : 
+                        status === 'warning' ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200' : 
+                        'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'
+                      }`}>
+                        {statusLabel}
+                      </span>
+                      <span className="inline-block px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                        Alerta: {categoryAlerts[product.category]} días
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-1 ml-2">
+                    <button 
+                      onClick={() => {
+                        setCurrentProduct(product);
+                        setShowModal(true);
+                      }} 
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <i className="fas fa-edit"></i>
+                    </button>
+                    <button 
+                      onClick={() => deleteProduct(product.id)}
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <i className="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 text-gray-700 dark:text-gray-300 text-sm">
+                  <div>
+                    <i className="far fa-calendar-alt mr-2"></i>
+                    Vence: {new Date(product.expirationDate).toLocaleDateString()}
+                  </div>
+                  {/* Días restantes */}
+                  <div>
+                    <i className="fas fa-hourglass-half mr-2"></i>
+                    {(() => {
+                      const today = new Date();
+                      const expDate = new Date(product.expirationDate);
+                      const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                      return days > 0
+                        ? `${days} día${days !== 1 ? 's' : ''} restante${days !== 1 ? 's' : ''}`
+                        : days === 0
+                        ? '¡Vence hoy!'
+                        : 'Vencido';
+                    })()}
+                  </div>
+                  {product.barcode && (
+                    <div className="mt-1">
+                      <i className="fas fa-barcode mr-2"></i>
+                      {product.barcode}
+                    </div>
+                  )}
+                  <div>
+                    <i className="fas fa-flag mr-2"></i>
+                    {getProductStage(product)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      function getProductStage(product) {
+  // Extrae solo el nombre de la categoría (después del primer espacio)
+  const catName = product.category.replace(/^\d+\s*/, '');
+  const config = stageConfig[catName] || { etapa1: 90, etapa2: 60, etapa3: 30 };
+  const today = new Date();
+  const expDate = new Date(product.expirationDate);
+  const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+  if (days <= 0) return "MERMA";
+  if (days <= config.etapa3) return "ETAPA 3";
+  if (days <= config.etapa2) return "ETAPA 2";
+  if (days <= config.etapa1) return "ETAPA 1";
+  return "";
+}
+      
+      return (
+        <div className="container mx-auto px-4 py-6 max-w-5xl">
+          {/* Encabezado */}
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
+              Control de Caducidades
+            </h1>
+            
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setShowSettings(true)}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
+                title="Configuración"
+              >
+                <i className="fas fa-cog"></i>
+              </button>
+              
+              {/* Toggle modo oscuro */}
+              <div className="relative inline-block w-10 mr-2 align-middle">
+                <input
+                  type="checkbox"
+                  id="toggle"
+                  className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                  checked={darkMode}
+                  onChange={() => setDarkMode(!darkMode)}
+                />
+                <label
+                  htmlFor="toggle"
+                  className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+                ></label>
+              </div>
+              <span className="text-gray-700 dark:text-gray-300">
+                {darkMode ? <i className="fas fa-moon"></i> : <i className="fas fa-sun"></i>}
+              </span>
+            </div>
+          </div>
+          
+          {/* Barra de búsqueda y filtros */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+            <div className="flex flex-col space-y-2">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <i className="fas fa-search text-gray-400"></i>
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Buscar producto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              {/* Vertical scrollable category buttons */}
+              <div className="mt-2">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Filtrar por categoría</label>
+                <select
+                  value={filterCategory}
+                  onChange={e => setFilterCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map(category => (
+                    <option key={category} value={category}>
+                      {category} ({categoryAlerts[category]} días)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* Botones de exportación/importación */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                onClick={exportToCSV}
+                className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 flex items-center"
+              >
+                <i className="fas fa-file-csv mr-2"></i>
+                Exportar CSV
+              </button>
+              
+              <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 flex items-center cursor-pointer">
+                <i className="fas fa-file-upload mr-2"></i>
+                Importar CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={importFromCSV}
+                />
+              </label>
+              
+              <button
+                onClick={exportToPDF}
+                className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 flex items-center"
+              >
+                <i className="fas fa-file-pdf mr-2"></i>
+                Exportar PDF
+              </button>
+            </div>
+          </div>
+          
+          {/* Lista de productos */}
+          <div className="space-y-4">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
+                {products.length === 0 ? (
+                  <div>
+                    <i className="fas fa-box-open text-5xl text-gray-400 mb-3"></i>
+                    <p className="text-gray-600 dark:text-gray-400">No hay productos en el inventario. Comience agregando uno.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <i className="fas fa-search text-5xl text-gray-400 mb-3"></i>
+                    <p className="text-gray-600 dark:text-gray-400">No se encontraron productos con los filtros actuales.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Botón flotante para agregar */}
+          <button 
+            className="floating-button"
+            onClick={() => {
+              setCurrentProduct(null);
+              setShowModal(true);
+            }}
+          >
+            <i className="fas fa-plus text-2xl"></i>
+          </button>
+          
+          {/* Modal de formulario */}
+          {showModal && <ProductFormModal />}
+          
+          {/* Modal de configuración */}
+          {showSettings && <SettingsModal />}
+        </div>
+      );
+    };
+    
+    // Renderizar la aplicación
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
