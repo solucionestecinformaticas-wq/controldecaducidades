@@ -16,6 +16,7 @@
   <!-- JSPDF para exportar a PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style id="app-style">
     body {
       transition: background-color 0.3s, color 0.3s;
@@ -293,117 +294,117 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
   <div id="root"></div>
-
+  <canvas id="barcode-canvas" style="display: none;"></canvas>
   <script type="text/babel" id="app-script">
     // Componente principal
     const App = () => {
       const [darkMode, setDarkMode] = React.useState(true);
       const [products, setProducts] = React.useState([]);
       const [categories, setCategories] = React.useState(['11076 10A_TRACTO ALIMENTARIO Y METABOLISMO',
-'11077 10B_SANGRE Y APARATO HEMATOPOYETICO',
-'11078 10C_SISTEMA CARDIOVASCULAR',
-'11079 10D_DERMATOLOGICOS',
-'11296 10E ESPECIALIZADOS',
-'11080 10G_SIST GENITOURINARIO Y HORMONAS SEX',
-'11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX)',
-'11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES',
-'11083 10K_SOLUCIONES HOSPITALARIAS',
-'11084 10L_ANTINEOPLASICOS Y AGTS INMUNOMODUL',
-'11085 10M_SISTEMA MUSCULO ESQUELETICO',
-'11086 10N_SISTEMA NERVIOSO CENTRAL',
-'11087 10P_PARASITOLOGIA',
-'11088 10R_SISTEMA RESPIRATORIO',
-'11089 10S_ORGANOS DE LOS SENTIDOS',
-'11090 10T AGENTES DE DIAGNOSTICO',
-'11091 10V_VARIOS',
-'11092 10W_PRODUCTOS NATURALES',
-'11297 10Y REFRIGERADOS',
-'11298 10Z CONTROLADOS',
-'11094 11A_RESPIRATORIOS OTC',
-'11095 11B_ANALGESICOS OTC',
-'11096 11C_GASTROINTEST OTC (TRACTO ALIMENT)',
-'11097 11D_SUEROS ORALES (SUSTIT ELECTROL ORAL)',
-'11098 11E_GINECOLOGICOS OTC Y PROD SEX',
-'11099 11F_DERMATOLOGICOS OTC',
-'11100 11G_OFTALMOLOGICOS Y OTICOS OTC',
-'11101 11H_VITAMINAS Y MINERALES OTC',
-'11102 11I_NUTRICIONALES OTC',
-'11104 11K_MATERIAL Y ACCESORIOS PARA CURACION',
-'11106 11M ORTOPEDICOS ACC TERAP Y ME',
-'11107 11N_PRUEBAS Y TEST DE DIAGNOSTICO',
-'11109 11P_CUIDADO DE LOS PIES',
-'11110 11R_PRODUCTOS NATURALES',
-'11111 11S_PRODUCTOS HOMEOPATICOS',
-'11112 11T_OTC VARIOS',
-'11017 ABARROTES GOURMET',
-'11019 ACEITES COMESTIBLES',
-'11010 ADEREZOS',
-'11033 AGUA Y HIELO',
-'11228 ALIMENTOS REFRIGERADOS',
-'11022 AZUCAR Y SUSTITUTOS',
-'11018 BARRAS DE CEREAL',
-'11249 BEBES ALIMENTOS',
-'11307 BEBES ALIMENTOS',
-'11348 BEBES ALIMENTOS.',
-'11035 BEBIDAS',
-'11367 BEBIDAS',
-'11032 BOTANAS',
-'11023 CAFES',
-'11013 CEREALES',
-'11003 Cereales Galletas Y Panes',
-'11055 CERVEZA',
-'11005 CHILES ENVASADOS',
-'11313 CHOCOLATES.',
-'11209 CHORIZOS Y LONGANIZAS',
-'11231 COMIDAS CONGELADAS',
-'11009 COMIDAS ENVASADAS Y ENTREMESES',
-'11034 CONCENTRADOS PARA BEBIDAS',
-'11008 CONSOMES Y CALDOS',
-'11224 CREMAS Y JOCOQUES',
-'11021 CREMAS, SOPAS, PASTAS Y PURES',
-'11208 DELI GOURMET',
-'11310 DESPENSAS.',
-'11031 DULCERIA',
-'11311 DULCERIA.',
-'11001 ESPECIAS Y CONDIMENTOS',
-'11004 FRIJOLES Y PLATILLOS MEXICANOS ENVASADOS',
-'11014 GALLETAS',
-'11225 GELATINAS Y POSTRES',
-'11020 GRANOS Y SEMILLAS',
-'11027 HARINAS Y COMPLEMENTOS',
-'11230 HELADOS Y POSTRES',
-'11211 JAMONES',
-'11029 JUGOS Y NECTARES',
-'11369 JUGOS Y NECTARES',
-'11377 LECHES',
-'11024 LECHES',
-'11229 LECHES ULTRAPASTEURIZADAS',
-'11222 LECHES Y BEBIDAS REFRIGERADAS',
-'11226 MANTEQUILLAS Y MARGARINAS',
-'11037 MASCOTAS',
-'11315 MASCOTAS.',
-'91 MEDICAMENTOS OTC',
-'100 MEDICINA ETICA',
-'11016 MERMELADAS, JALEAS, MIELES Y CAJETAS',
-'11012 MOLES Y ADOBOS',
-'11011 PESCADOS ENVASADOS',
-'11221 PESCADOS Y MARISCOS',
-'11015 PINA REBANADAS',
-'11114 PLAN DE FIDELIDAD MG',
-'11028 POSTRES',
-'11223 QUESOS',
-'11030 REFRESCOS',
-'11026 SABORIZANTES PARA LECHE Y CAFE',
-'11212 SALCHICHAS',
-'11007 SALSAS ENVASADAS',
-'11113 SIN CATEGORIA  FARM',
-'11241 SIN CATEGORIA (PRO ESP)',
-'11201 TARJETAS Y SORTEOS DE AYUDA',
-'11025 TES DE INFUSION',
-'11210 TOCINOS',
-'11002 TORTILLAS Y TOSTADAS EMPACADAS',
-'11006 VERDURAS Y VEGETALES ENVASADOS',
-'11227 YOGHURT']);
+        '11077 10B_SANGRE Y APARATO HEMATOPOYETICO',
+        '11078 10C_SISTEMA CARDIOVASCULAR',
+        '11079 10D_DERMATOLOGICOS',
+        '11296 10E ESPECIALIZADOS',
+        '11080 10G_SIST GENITOURINARIO Y HORMONAS SEX',
+        '11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX)',
+        '11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES',
+        '11083 10K_SOLUCIONES HOSPITALARIAS',
+        '11084 10L_ANTINEOPLASICOS Y AGTS INMUNOMODUL',
+        '11085 10M_SISTEMA MUSCULO ESQUELETICO',
+        '11086 10N_SISTEMA NERVIOSO CENTRAL',
+        '11087 10P_PARASITOLOGIA',
+        '11088 10R_SISTEMA RESPIRATORIO',
+        '11089 10S_ORGANOS DE LOS SENTIDOS',
+        '11090 10T AGENTES DE DIAGNOSTICO',
+        '11091 10V_VARIOS',
+        '11092 10W_PRODUCTOS NATURALES',
+        '11297 10Y REFRIGERADOS',
+        '11298 10Z CONTROLADOS',
+        '11094 11A_RESPIRATORIOS OTC',
+        '11095 11B_ANALGESICOS OTC',
+        '11096 11C_GASTROINTEST OTC (TRACTO ALIMENT)',
+        '11097 11D_SUEROS ORALES (SUSTIT ELECTROL ORAL)',
+        '11098 11E_GINECOLOGICOS OTC Y PROD SEX',
+        '11099 11F_DERMATOLOGICOS OTC',
+        '11100 11G_OFTALMOLOGICOS Y OTICOS OTC',
+        '11101 11H_VITAMINAS Y MINERALES OTC',
+        '11102 11I_NUTRICIONALES OTC',
+        '11104 11K_MATERIAL Y ACCESORIOS PARA CURACION',
+        '11106 11M ORTOPEDICOS ACC TERAP Y ME',
+        '11107 11N_PRUEBAS Y TEST DE DIAGNOSTICO',
+        '11109 11P_CUIDADO DE LOS PIES',
+        '11110 11R_PRODUCTOS NATURALES',
+        '11111 11S_PRODUCTOS HOMEOPATICOS',
+        '11112 11T_OTC VARIOS',
+        '11017 ABARROTES GOURMET',
+        '11019 ACEITES COMESTIBLES',
+        '11010 ADEREZOS',
+        '11033 AGUA Y HIELO',
+        '11228 ALIMENTOS REFRIGERADOS',
+        '11022 AZUCAR Y SUSTITUTOS',
+        '11018 BARRAS DE CEREAL',
+        '11249 BEBES ALIMENTOS',
+        '11307 BEBES ALIMENTOS',
+        '11348 BEBES ALIMENTOS.',
+        '11035 BEBIDAS',
+        '11367 BEBIDAS',
+        '11032 BOTANAS',
+        '11023 CAFES',
+        '11013 CEREALES',
+        '11003 Cereales Galletas Y Panes',
+        '11055 CERVEZA',
+        '11005 CHILES ENVASADOS',
+        '11313 CHOCOLATES.',
+        '11209 CHORIZOS Y LONGANIZAS',
+        '11231 COMIDAS CONGELADAS',
+        '11009 COMIDAS ENVASADAS Y ENTREMESES',
+        '11034 CONCENTRADOS PARA BEBIDAS',
+        '11008 CONSOMES Y CALDOS',
+        '11224 CREMAS Y JOCOQUES',
+        '11021 CREMAS, SOPAS, PASTAS Y PURES',
+        '11208 DELI GOURMET',
+        '11310 DESPENSAS.',
+        '11031 DULCERIA',
+        '11311 DULCERIA.',
+        '11001 ESPECIAS Y CONDIMENTOS',
+        '11004 FRIJOLES Y PLATILLOS MEXICANOS ENVASADOS',
+        '11014 GALLETAS',
+        '11225 GELATINAS Y POSTRES',
+        '11020 GRANOS Y SEMILLAS',
+        '11027 HARINAS Y COMPLEMENTOS',
+        '11230 HELADOS Y POSTRES',
+        '11211 JAMONES',
+        '11029 JUGOS Y NECTARES',
+        '11369 JUGOS Y NECTARES',
+        '11377 LECHES',
+        '11024 LECHES',
+        '11229 LECHES ULTRAPASTEURIZADAS',
+        '11222 LECHES Y BEBIDAS REFRIGERADAS',
+        '11226 MANTEQUILLAS Y MARGARINAS',
+        '11037 MASCOTAS',
+        '11315 MASCOTAS.',
+        '91 MEDICAMENTOS OTC',
+        '100 MEDICINA ETICA',
+        '11016 MERMELADAS, JALEAS, MIELES Y CAJETAS',
+        '11012 MOLES Y ADOBOS',
+        '11011 PESCADOS ENVASADOS',
+        '11221 PESCADOS Y MARISCOS',
+        '11015 PINA REBANADAS',
+        '11114 PLAN DE FIDELIDAD MG',
+        '11028 POSTRES',
+        '11223 QUESOS',
+        '11030 REFRESCOS',
+        '11026 SABORIZANTES PARA LECHE Y CAFE',
+        '11212 SALCHICHAS',
+        '11007 SALSAS ENVASADAS',
+        '11113 SIN CATEGORIA  FARM',
+        '11241 SIN CATEGORIA (PRO ESP)',
+        '11201 TARJETAS Y SORTEOS DE AYUDA',
+        '11025 TES DE INFUSION',
+        '11210 TOCINOS',
+        '11002 TORTILLAS Y TOSTADAS EMPACADAS',
+        '11006 VERDURAS Y VEGETALES ENVASADOS',
+        '11227 YOGHURT']);
       const [showModal, setShowModal] = React.useState(false);
       const [currentProduct, setCurrentProduct] = React.useState(null);
       const [searchTerm, setSearchTerm] = React.useState('');
@@ -564,40 +565,33 @@
       React.useEffect(() => {
         const checkExpiringProducts = () => {
           const today = new Date();
-          // Recupera productos ya notificados
-          const notified = JSON.parse(localStorage.getItem('notifiedProducts') || '{}');
-          let updated = { ...notified };
 
           products.forEach(product => {
             const expDate = new Date(product.expirationDate);
             const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-            const alreadyNotified = notified[product.id];
+            // Extrae solo el nombre de la categoría (después del primer espacio)
+            const catName = product.category.replace(/^\d+\s*/, '');
+            const config = stageConfig[catName] || { etapa1: 90, etapa2: 60, etapa3: 30 };
 
-            // Solo notificar si no está vencido, está por vencer y no se ha notificado aún
-            if (
-              daysUntilExpiry > 0 &&
-              daysUntilExpiry <= (categoryAlerts[product.category] || 0) &&
-              !alreadyNotified
-            ) {
+            let etapa = "";
+            if (daysUntilExpiry <= 0) etapa = "MERMA";
+            else if (daysUntilExpiry <= config.etapa3) etapa = "ETAPA 3";
+            else if (daysUntilExpiry <= config.etapa2) etapa = "ETAPA 2";
+            else if (daysUntilExpiry <= config.etapa1) etapa = "ETAPA 1";
+
+            if (etapa) {
               if (Notification.permission === 'granted') {
                 new Notification('¡Producto por vencer!', {
-                  body: `${product.name} vencerá en ${daysUntilExpiry} días`,
+                  body: `${product.name} está en ${etapa} (${daysUntilExpiry <= 0 ? 'VENCIDO' : daysUntilExpiry + ' días'})`,
                   icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972431.png'
                 });
-                updated[product.id] = true;
               }
             }
-            // Si el producto ya no está por vencer, elimina la notificación para futuras alertas
-            if (daysUntilExpiry > (categoryAlerts[product.category] || 0)) {
-              delete updated[product.id];
-            }
           });
-
-          localStorage.setItem('notifiedProducts', JSON.stringify(updated));
         };
 
         checkExpiringProducts();
-        const interval = setInterval(checkExpiringProducts, 86400000);
+        const interval = setInterval(checkExpiringProducts, 86400000); // cada 24h
 
         return () => clearInterval(interval);
       }, [products, categoryAlerts]);
@@ -719,80 +713,114 @@
       };
       
       // Función para exportar a PDF
-      const exportToPDF = () => {
-        if (products.length === 0) {
-          alert('No hay productos para exportar');
-          return;
-        }
-      
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-      
-        // Título
-        doc.setFontSize(18);
-        doc.text('Inventario de Productos', 14, 22);
-      
-        // Fecha
-        doc.setFontSize(11);
-        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
-      
-        // Tabla
-        const tableColumn = [
-          "Nombre",
-          "Categoría",
-          "Cantidad",
-          "Fecha de Vencimiento",
-          "Estado",
-          "Días Restantes",
-          "Etapa",
-          "Alerta (días)",
-          "Código de Barras"
-        ];
-        const tableRows = [];
-      
-        products.forEach(product => {
-          const status = getProductStatus(product.expirationDate);
-          const today = new Date();
-          const expDate = new Date(product.expirationDate);
-          const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-          const statusLabel =
-            status === 'fresh'
-              ? 'En buen estado'
-              : status === 'warning'
-              ? 'Por vencer'
-              : 'Vencido';
-      
-          tableRows.push([
-            product.name,
-            product.category,
-            product.quantity,
-            new Date(product.expirationDate).toLocaleDateString(),
-            statusLabel,
-            days > 0
-              ? `${days} día${days !== 1 ? 's' : ''}`
-              : days === 0
-              ? '¡Vence hoy!'
-              : 'Vencido',
-            getProductStage(product),
-            categoryAlerts[product.category] || categoryAlerts[catName],
-            product.barcode || ''
-          ]);
-        });
-      
-        // Generar tabla con jspdf-autotable
-        doc.autoTable({
-          head: [tableColumn],
-          body: tableRows,
-          startY: 35,
-          theme: 'striped',
-          styles: { overflow: 'linebreak', fontSize: 9 },
-          columnStyles: { 0: { cellWidth: 'auto' } }
-        });
-      
-        // Guardar PDF
-        doc.save(`inventario_${new Date().toISOString().split('T')[0]}.pdf`);
-      };
-      
+const exportToPDF = async () => {
+  if (products.length === 0) {
+    alert('No hay productos para exportar');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Título
+  doc.setFontSize(18);
+  doc.text('Inventario de Productos', 14, 22);
+
+  // Fecha
+  doc.setFontSize(11);
+  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
+
+  // Encabezados de tabla
+  const tableColumn = [
+    "Código de Barras", // Encabezado fijo
+    "Código",           // Código del producto
+    "Nombre",
+    "Ctg",
+    "Cantidad",
+    "Vencimiento",
+    "Status",
+    "Días Restantes",
+    "Etapa"
+  ];
+
+  const tableRows = [];
+
+  for (const product of products) {
+    const status = getProductStatus(product.expirationDate);
+    const today = new Date();
+    const expDate = new Date(product.expirationDate);
+    const days = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+    const statusLabel =
+      status === 'fresh'
+        ? 'En buen estado'
+        : status === 'warning'
+        ? 'Por vencer'
+        : 'Vencido';
+
+    const barcodeData = product.barcode || '000000000000';
+
+    // 🔧 Crear un canvas temporal para este código de barras
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, barcodeData, {
+      format: "EAN13",
+      displayValue: false,
+      width: 1,
+      height: 20,
+      margin: 0
+    });
+
+    const barcodeImage = canvas.toDataURL("image/png");
+
+    tableRows.push([
+      { content: " ", barcodeImage }, // Imagen se añadirá luego
+      product.barcode || '',
+      product.name,
+      product.category,
+      product.quantity,
+      new Date(product.expirationDate).toLocaleDateString(),
+      statusLabel,
+      days > 0
+        ? `${days} día${days !== 1 ? 's' : ''}`
+        : days === 0
+        ? '¡Vence hoy!'
+        : 'Vencido',
+      getProductStage(product)
+    ]);
+  }
+
+doc.autoTable({
+  head: [tableColumn],
+  body: tableRows.map(row => row.map(cell => typeof cell === 'object' ? cell.content : cell)),
+  startY: 35,
+  theme: 'striped',
+  styles: { overflow: 'linebreak', fontSize: 8 },
+  columnStyles: { 0: { cellWidth: 40 } },
+  didDrawCell: function (data) {
+  if (
+    data.section === 'body' &&
+    data.column.index === 0 &&
+    tableRows[data.row.index][0].barcodeImage
+  ) {
+    const imageHeight = data.cell.height - 2;
+    const imageWidth = data.cell.width - 2; // que se ajuste al ancho de la celda
+
+    doc.addImage(
+      tableRows[data.row.index][0].barcodeImage,
+      'PNG',
+      data.cell.x + 1,
+      data.cell.y + 1,
+      imageWidth,
+      imageHeight
+    );
+  }
+}
+});
+
+
+  // Guardar PDF
+  doc.save(`inventario_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
       // Filtrar productos según búsqueda y categoría
       const filteredProducts = products.filter(product => {
         return (
