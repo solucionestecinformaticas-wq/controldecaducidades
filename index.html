@@ -375,7 +375,6 @@
 '11211 JAMONES',
 '11029 JUGOS Y NECTARES',
 '11369 JUGOS Y NECTARES',
-'11369 JUGOS Y NECTARES',
 '11377 LECHES',
 '11024 LECHES',
 '11229 LECHES ULTRAPASTEURIZADAS',
@@ -486,7 +485,6 @@
         '11211 JAMONES': 30,
         '11029 JUGOS Y NECTARES': 90,
         '11369 JUGOS Y NECTARES': 90,
-        '11369 JUGOS Y NECTARES': 90,
         '11377 LECHES': 90,
         '11024 LECHES': 90,
         '11229 LECHES ULTRAPASTEURIZADAS': 30,
@@ -566,27 +564,41 @@
       React.useEffect(() => {
         const checkExpiringProducts = () => {
           const today = new Date();
-          
+          // Recupera productos ya notificados
+          const notified = JSON.parse(localStorage.getItem('notifiedProducts') || '{}');
+          let updated = { ...notified };
+
           products.forEach(product => {
             const expDate = new Date(product.expirationDate);
             const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-            
-            // Mostrar notificación si está por vencer según la configuración de categoría
-            if (daysUntilExpiry > 0 && daysUntilExpiry <= categoryAlerts[product.category]) {
+            const alreadyNotified = notified[product.id];
+
+            // Solo notificar si no está vencido, está por vencer y no se ha notificado aún
+            if (
+              daysUntilExpiry > 0 &&
+              daysUntilExpiry <= (categoryAlerts[product.category] || 0) &&
+              !alreadyNotified
+            ) {
               if (Notification.permission === 'granted') {
                 new Notification('¡Producto por vencer!', {
                   body: `${product.name} vencerá en ${daysUntilExpiry} días`,
                   icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972431.png'
                 });
+                updated[product.id] = true;
               }
             }
+            // Si el producto ya no está por vencer, elimina la notificación para futuras alertas
+            if (daysUntilExpiry > (categoryAlerts[product.category] || 0)) {
+              delete updated[product.id];
+            }
           });
+
+          localStorage.setItem('notifiedProducts', JSON.stringify(updated));
         };
-        
-        // Verificar al cargar y cada 24 horas
+
         checkExpiringProducts();
         const interval = setInterval(checkExpiringProducts, 86400000);
-        
+
         return () => clearInterval(interval);
       }, [products, categoryAlerts]);
       
