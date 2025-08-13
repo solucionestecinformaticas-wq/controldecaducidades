@@ -23,6 +23,26 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body {
       font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background-color: #f9fafb;
+      color: #1f2937;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .dark {
+      background-color: #1a202c;
+      color: #e5e7eb;
+    }
+    .dark .bg-white {
+      background-color: #2d3748;
+    }
+    .dark .text-gray-800 {
+      color: #e5e7eb;
+    }
+    .dark .text-gray-600 {
+      color: #9ca3af;
+    }
+    .dark .border-gray-200 {
+      border-color: #4b5563;
     }
     .scrollbar-custom {
       scrollbar-width: thin;
@@ -35,6 +55,508 @@
       background: #f1f5f9;
       border-radius: 10px;
     }
+    .scrollbar-custom::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 10px;
+    }
+    .notification {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 1rem;
+      background-color: #1f2937;
+      color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      transform: translateX(100%);
+      animation: slideInNotification 0.3s ease-out forwards;
+    }
+    @keyframes slideInNotification {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .stat-card {
+      transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+    @media (max-width: 640px) {
+      .floating-button {
+        width: 3.5rem;
+        height: 3.5rem;
+        bottom: 1rem;
+        right: 1rem;
+      }
+    }
+    .status-fresh {
+      background-color: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .status-warning {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+    .status-expired {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .product-card {
+      transition: all 0.3s ease;
+      border: 1px solid #e5e7eb;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    .modal {
+      transition: all 0.3s ease;
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #68D391;
+      transform: translateX(20px);
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #68D391;
+    }
+    .toggle-label {
+      transition: all 0.2s ease;
+    }
+    .category-slider {
+      scrollbar-width: thin;
+      -ms-overflow-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .category-slider::-webkit-scrollbar {
+      display: none;
+    }
+    .floating-button {
+      width: 3.5rem;
+      height: 3.5rem;
+      background-color: #2563eb;
+      color: white;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+      z-index: 10;
+    }
+    .floating-button:hover {
+      background-color: #1d4ed8;
+      transform: scale(1.1);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    .product-image {
+      border-radius: 0.5rem;
+      object-fit: cover;
+      transition: transform 0.2s ease;
+    }
+    .product-image:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // Database helper for IndexedDB
+    const useIndexedDB = () => {
+      const DB_NAME = 'ExpiryControlDB';
+      const DB_VERSION = 1;
+      const STORE_NAME = 'products';
+      const CONFIG_STORE = 'config';
+
+      const openDB = () => {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            // Create products store if it doesn't exist
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              const productStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+              productStore.createIndex('name', 'name', { unique: false });
+              productStore.createIndex('category', 'category', { unique: false });
+              productStore.createIndex('expiryDate', 'expiryDate', { unique: false });
+            }
+            
+            // Create config store if it doesn't exist
+            if (!db.objectStoreNames.contains(CONFIG_STORE)) {
+              db.createObjectStore(CONFIG_STORE, { keyPath: 'key' });
+            }
+          };
+        });
+      };
+
+      const getProducts = async () => {
+        try {
+          const db = await openDB();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAll();
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+        } catch (error) {
+          console.error('Error getting products:', error);
+          return [];
+        }
+      };
+
+      const saveProducts = async (products) => {
+        try {
+          const db = await openDB();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            
+            // Clear existing data
+            store.clear();
+            
+            // Add new data
+            if (Array.isArray(products) && products.length > 0) {
+              products.forEach(product => {
+                if (product.id) {
+                  store.add(product);
+                }
+              });
+            }
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+          });
+        } catch (error) {
+          console.error('Error saving products:', error);
+          throw error;
+        }
+      };
+
+      const getConfig = async (key) => {
+        try {
+          const db = await openDB();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([CONFIG_STORE], 'readonly');
+            const store = transaction.objectStore(CONFIG_STORE);
+            const request = store.get(key);
+
+            request.onsuccess = () => resolve(request.result ? request.result.value : null);
+            request.onerror = () => reject(request.error);
+          });
+        } catch (error) {
+          console.error('Error getting config:', error);
+          return null;
+        }
+      };
+
+      const saveConfig = async (key, value) => {
+        try {
+          const db = await openDB();
+          return new Promise((resolve, reject) => {
+            const transaction = db.transaction([CONFIG_STORE], 'readwrite');
+            const store = transaction.objectStore(CONFIG_STORE);
+            
+            // Check if key exists
+            const getRequest = store.get(key);
+            
+            getRequest.onsuccess = () => {
+              if (getRequest.result) {
+                // Update existing
+                store.put({ key, value });
+              } else {
+                // Add new
+                store.add({ key, value });
+              }
+            };
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+          });
+        } catch (error) {
+          console.error('Error saving config:', error);
+          throw error;
+        }
+      };
+
+      return { getProducts, saveProducts, getConfig, saveConfig };
+    };
+
+    // Componente principal
+    const App = () => {
+      const db = useIndexedDB();
+      
+      // Estado principal
+      const [darkMode, setDarkMode] = useState(false);
+      const [products, setProducts] = useState([]);
+      const [showModal, setShowModal] = useState(false);
+      const [currentProduct, setCurrentProduct] = useState(null);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [filterCategory, setFilterCategory] = useState('');
+      const [categoryAlerts, setCategoryAlerts] = useState({});
+      const [showSettings, setShowSettings] = useState(false);
+      const [notification, setNotification] = useState(null);
+      const [isLoading, setIsLoading] = useState(true);
+
+      const fileInputRef = useRef(null);
+
+      // Categorías predefinidas
+      const categories = [
+        '11054 CIGARROS',
+        '11076 10A_TRACTO ALIMENTARIO Y METABOLISMO',
+        '11076 10A_TRACTO ALIMENTARIO Y METABOLISMO (GESTOR)',
+        '11077 10B_SANGRE Y APARATO HEMATOPOYETICO',
+        '11077 10B_SANGRE Y APARATO HEMATOPOYETICO (GESTOR)',
+        '11078 10C_SISTEMA CARDIOVASCULAR',
+        '11078 10C_SISTEMA CARDIOVASCULAR (GESTOR)',
+        '11079 10D_DERMATOLOGICOS',
+        '11079 10D_DERMATOLOGICOS (GESTOR)',
+        '11296 10E ESPECIALIZADOS',
+        '11296 10E ESPECIALIZADOS (GESTOR)',
+        '11080 10G_SIST GENITOURINARIO Y HORMONAS SEX',
+        '11080 10G_SIST GENITOURINARIO Y HORMONAS SEX (GESTOR)',
+        '11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX)',
+        '11081 10H_PREP HORM SIST (EXCLUY HORMONAS SEX) (GESTOR)',
+        '11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES',
+        '11082 10J_ANTIINFECCIOSOS SISTEMICOS GENERALES (GESTOR)',
+        '11083 10K_SOLUCIONES HOSPITALARIAS',
+        '11083 10K_SOLUCIONES HOSPITALARIAS (GESTOR)',
+        '11084 10L_ANTINEOPLASICOS_Y_AGTS_INMUNOMODUL',
+        '11084 10L_ANTINEOPLASICOS_Y_AGTS_INMUNOMODUL (GESTOR)',
+        '11085 10M_SISTEMA_MUSCULO_ESQUELETICO',
+        '11085 10M_SISTEMA_MUSCULO_ESQUELETICO (GESTOR)',
+        '11086 10N_SISTEMA_NERVIOSO_CENTRAL',
+        '11086 10N_SISTEMA_NERVIOSO_CENTRAL (GESTOR)',
+        '11087 10P_PARASITOLOGIA',
+        '11087 10P_PARASITOLOGIA (GESTOR)',
+        '11088 10R_SISTEMA_RESPIRATORIO',
+        '11088 10R_SISTEMA_RESPIRATORIO (GESTOR)',
+        '11089 10S_ORGANOS_DE_LOS_SENTIDOS',
+        '11089 10S_ORGANOS_DE_LOS_SENTIDOS (GESTOR)',
+        '11090 10T_AGENTES_DE_DIAGNOSTICO',
+        '11090 10T_AGENTES_DE_DIAGNOSTICO (GESTOR)',
+        '11091 10V_VARIOS',
+        '11091 10V_VARIOS (GESTOR)',
+        '11092 10W_PRODUCTOS_NATURALES',
+        '11092 10W_PRODUCTOS_NATURALES (GESTOR)',
+        '11297 10Y_REFREGERADOS',
+        '11297 10Y_REFREGERADOS (GESTOR)',
+        '11298 10Z_CONTROLADOS',
+        '11298 10Z_CONTROLADOS (GESTOR)',
+        '11094 11A_RESPIRATORIOS_OTC',
+        '11094 11A_RESPIRATORIOS_OTC (GESTOR)',
+        '11095 11B_ANALGESICOS_OTC',
+        '11095 11B_ANALGESICOS_OTC (GESTOR)',
+        '11096 11C_GASTROINTEST_OTC_(TRACTO_ALIMENT)',
+        '11096 11C_GASTROINTEST_OTC_(TRACTO_ALIMENT) (GESTOR)',
+        '11097 11D_SUEROS_ORALES_(SUSTIT_ELECTROL_ORAL)',
+        '11097 11D_SUEROS_ORALES_(SUSTIT_ELECTROL_ORAL) (GESTOR)',
+        '11098 11E_GINECOLOGICOS_OTC_Y_PROD_SEX',
+        '11098 11E_GINECOLOGICOS_OTC_Y_PROD_SEX (GESTOR)',
+        '11099 11F_DERMATOLOGICOS_OTC',
+        '11099 11F_DERMATOLOGICOS_OTC (GESTOR)',
+        '11100 11G_OFTALMOLOGICOS_Y_OTICOS_OTC',
+        '11100 11G_OFTALMOLOGICOS_Y_OTICOS_OTC (GESTOR)',
+        '11101 11H_VITAMINAS_Y_MINERALES_OTC',
+        '11101 11H_VITAMINAS_Y_MINERALES_OTC (GESTOR)',
+        '11102 11I_NUTRICIONALES_OTC',
+        '11102 11I_NUTRICIONALES_OTC (GESTOR)',
+        '11104 11K_MATERIAL_Y_ACCESORIOS_PARA_CURACION',
+        '11104 11K_MATERIAL_Y_ACCESORIOS_PARA_CURACION (GESTOR)',
+        '11105 11L_HIGIENE BUCAL',
+        '11105 11L_HIGIENE BUCAL (GESTOR)',
+        '11106 11M_ORTOPEDICOS_ACC_TERAP_Y_ME',
+        '11106 11M_ORTOPEDICOS_ACC_TERAP_Y_ME (GESTOR)',
+        '11107 11N_PRUEBAS_Y_TEST_DE_DIAGNOSTICO',
+        '11107 11N_PRUEBAS_Y_TEST_DE_DIAGNOSTICO (GESTOR)',
+        '11108 11O_OPTICA',
+        '11108 11O_OPTICA (GESTOR)',
+        '11109 11P_CUIDADO_DE_LOS_PIES',
+        '11109 11P_CUIDADO_DE_LOS_PIES (GESTOR)',
+        '11110 11R_PRODUCTOS_NATURALES',
+        '11110 11R_PRODUCTOS_NATURALES (GESTOR)',
+        '11111 11S_PRODUCTOS_HOMEOPATICOS',
+        '11111 11S_PRODUCTOS_HOMEOPATICOS (GESTOR)',
+        '11112 11T_OTC_VARIOS',
+        '11112 11T_OTC_VARIOS (GESTOR)',
+        '11017 ABARROTES_GOURMET',
+        '11017 ABARROTES_GOURMET (GESTOR)',
+        '11019 ACEITES_COMESTIBLES',
+        '11019 ACEITES_COMESTIBLES (GESTOR)',
+        '11010 ADEREZOS',
+        '11010 ADEREZOS (GESTOR)',
+        '11033 AGUA_Y_HIELO',
+        '11033 AGUA_Y_HIELO (GESTOR)',
+        '11228 ALIMENTOS_REFRIGERADOS',
+        '11228 ALIMENTOS_REFRIGERADOS (GESTOR)',
+        '11022 AZUCAR_Y_SUSTITUTOS',
+        '11022 AZUCAR_Y_SUSTITUTOS (GESTOR)',
+        '11018 BARRAS_DE_CEREAL',
+        '11018 BARRAS_DE_CEREAL (GESTOR)',
+        '11344 BEBES_ACCESORIOS_Y_MUEBLES_INFANTILES.',
+        '11249 BEBES_ALIMENTOS',
+        '11307 BEBES_ALIMENTOS',
+        '11249 BEBES_ALIMENTOS (GESTOR)',
+        '11307 BEBES_ALIMENTOS (GESTOR)',
+        '11348 BEBES_ALIMENTOS.',
+        '11348 BEBES_ALIMENTOS. (GESTOR)',
+        '11242 BEBES_BLANCOS',
+        '11273 BEBES_CALCETERIA',
+        '11300 BEBES_CALCETERIA',
+        '11346 BEBES_FORMULAS_INFANTILES.',
+        '11242 BEBES_NIÑA',
+        '11243 BEBES_NIÑO',
+        '11345 BEBES_PAÑALES.',
+        '11347 BEBES_PERFUMERIA.',
+        '11299 BEBES_ROPA_INTERIOR',
+        '11035 BEBIDAS',
+        '11367 BEBIDAS',
+        '11032 BOTANAS',
+        '11032 BOTANAS (GESTOR)',
+        '11023 CAFES',
+        '11023 CAFES (GESTOR)',
+        '11013 CEREALES',
+        '11013 CEREALES (GESTOR)',
+        '11003 Cereales_Galletas_Y_Panes',
+        '11003 Cereales_Galletas_Y_Panes (GESTOR)',
+        '11055 CERVEZA',
+        '11055 CERVEZA (GESTOR)',
+        '11005 CHILES_ENVASADOS',
+        '11005 CHILES_ENVASADOS (GESTOR)',
+        '11313 CHOCOLATES.',
+        '11313 CHOCOLATES. (GESTOR)',
+        '11209 CHORIZOS_Y_LONGANIZAS',
+        '11209 CHORIZOS_Y_LONGANIZAS (GESTOR)',
+        '11231 COMIDAS_CONGELADAS',
+        '11231 COMIDAS_CONGELADAS (GESTOR)',
+        '11009 COMIDAS_ENVASADAS_Y_ENTREMESES',
+        '11009 COMIDAS_ENVASADAS_Y_ENTREMESES (GESTOR)',
+        '11034 CONCENTRADOS_PARA_BEBIDAS',
+        '11034 CONCENTRADOS_PARA_BEBIDAS (GESTOR)',
+        '11008 CONSOMES_Y_CALDOS',
+        '11008 CONSOMES_Y_CALDOS (GESTOR)',
+        '11224 CREMAS_Y_JOCOQUES',
+        '11224 CREMAS_Y_JOCOQUES (GESTOR)',
+        '11021 CREMAS,_SOPAS,_PASTAS_Y_PURES',
+        '11021 CREMAS,_SOPAS,_PASTAS_Y_PURES (GESTOR)',
+        '11208 DELI_GOURMET',
+        '11208 DELI_GOURMET (GESTOR)',
+        '11310 DESPENSAS.',
+        '11310 DESPENSAS. (GESTOR)',
+        '11319 DETERGENTES.',
+        '11031 DULCERIA',
+        '11031 DULCERIA (GESTOR)',
+        '11311 DULCERIA.',
+        '11311 DULCERIA. (GESTOR)',
+        '11161 ENSERES_MENORES',
+        '11134 EQUIPAJE_ESCOLAR',
+        '11001 ESPECIAS_Y_CONDIMENTOS',
+        '11001 ESPECIAS_Y_CONDIMENTOS (GESTOR)',
+        '11135 ESTETICA_AUTOMOTRIZ',
+        '11140 FIESTA',
+        '11343 FIJADORES_Y_MODELADORES.',
+        '11172 FRAGANCIAS',
+        '11004 FRIJOLES_Y_PLATILLOS_MEXICANOS_ENVASADOS',
+        '11004 FRIJOLES_Y_PLATILLOS_MEXICANOS_ENVASADOS (GESTOR)',
+        '11064 FRITO_Y_ROSTIZADO',
+        '11219 FRUTAS',
+        '11349 FUENTE_DE_SODAS.',
+        '11014 GALLETAS',
+        '11014 GALLETAS (GESTOR)',
+        '11225 GELATINAS_Y_POSTRES',
+        '11225 GELATINAS_Y_POSTRES (GESTOR)',
+        '11020 GRANOS_Y_SEMILLAS',
+        '11020 GRANOS_Y_SEMILLAS (GESTOR)',
+        '11027 HARINAS_Y_COMPLEMENTOS',
+        '11027 HARINAS_Y_COMPLEMENTOS (GESTOR)',
+        '11230 HELADOS_Y_POSTRES',
+        '11230 HELADOS_Y_POSTRES (GESTOR)',
+        '11211 JAMONES',
+        '11211 JAMONES (GESTOR)',
+        '11029 JUGOS_Y_NECTARES',
+        '11029 JUGOS_Y_NECTARES (GESTOR)',
+        '11369 JUGOS_Y_NECTARES',
+        '11369 JUGOS_Y_NECTARES (GESTOR)',
+        '11377 LECHES',
+        '11024 LECHES',
+        '11229 LECHES_ULTRAPASTEURIZADAS',
+        '11229 LECHES_ULTRAPASTEURIZADAS (GESTOR)',
+        '11222 LECHES_Y_BEBIDAS_REFREGERADAS',
+        '11222 LECHES_Y_BEBIDAS_REFREGERADAS (GESTOR)',
+        '11226 MANTEQUILLAS_Y_MARGARINAS',
+        '11226 MANTEQUILLAS_Y_MARGARINAS (GESTOR)',
+        '11037 MASCOTAS',
+        '11315 MASCOTAS.',
+        '11123 MEDICAMENTOS_CONTROLADOS',
+        '11123 MEDICAMENTOS_CONTROLADOS (GESTOR)',
+        '91 MEDICAMENTOS_OTC',
+        '91 MEDICAMENTOS_OTC (GESTOR)',
+        '100 MEDICINA_ETICA',
+        '100 MEDICINA_ETICA (GESTOR)',
+        '11016 MERMELADAS,_JALEAS,_MIELES_Y_CAJETAS',
+        '11016 MERMELADAS,_JALEAS,_MIELES_Y_CAJETAS (GESTOR)',
+        '11012 MOLES_Y_ADOBOS',
+        '11012 MOLES_Y_ADOBOS (GESTOR)',
+        '11011 PESCADOS_ENVASADOS',
+        '11011 PESCADOS_ENVASADOS (GESTOR)',
+        '11221 PESCADOS_Y_MARISCOS',
+        '11221 PESCADOS_Y_MARISCOS (GESTOR)',
+        '11015 PINA_REBANADAS',
+        '11015 PINA_REBANADAS (GESTOR)',
+        '11114 PLAN_DE_FIDELIDAD_MG',
+        '11114 PLAN_DE_FIDELIDAD_MG (GESTOR)',
+        '11028 POSTRES',
+        '11028 POSTRES (GESTOR)',
+        '11223 QUESOS',
+        '11223 QUESOS (GESTOR)',
+        '11030 REFRESCOS',
+        '11030 REFRESCOS (GESTOR)',
+        '11026 SABORIZANTES_PARA_LECHE_Y_CAFE',
+        '11026 SABORIZANTES_PARA_LECHE_Y_CAFE (GESTOR)',
+        '11212 SALCHICHAS',
+        '11212 SALCHICHAS (GESTOR)',
+        '11007 SALSAS_ENVASADAS',
+        '11007 SALSAS_ENVASADAS (GESTOR)',
+        '11113 SIN_CATEGORIA_FARM',
+        '11113 SIN_CATEGORIA_FARM (GESTOR)',
+        '11241 SIN_CATEGORIA_(PRO_ESP)',
+        '11241 SIN_CATEGORIA_(PRO_ESP) (GESTOR)',
+        '11201 TARJETAS_Y_SORTEOS_DE_AYUDA',
+        '11201 TARJETAS_Y_SORTEOS_DE_AYUDA (GESTOR)',
+        '11025 TES_DE_INFUSION',
+        '11025 TES_DE_INFUSION (GESTOR)',
+        '11210 TOCINOS',
+        '11210 TOCINOS (GESTOR)',
+         }
     .scrollbar-custom::-webkit-scrollbar-thumb {
       background-color: #cbd5e1;
       border-radius: 10px;
