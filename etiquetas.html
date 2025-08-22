@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Etiquetas RMPC - Mantener datos</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+
+  <style>
+    @page {
+      margin: 0.5cm;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 10px;
+      background-color: #f4f6f9;
+      color: #333;
+    }
+
+    .form-container {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .form-container h2 {
+      margin-top: 0;
+      color: #2c3e50;
+      font-weight: 600;
+    }
+    .form-container label {
+      display: block;
+      margin: 10px 0 5px;
+      font-size: 14px;
+      color: #555;
+      font-weight: 500;
+    }
+    .form-container input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .form-container input:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+    .form-container button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+      font-weight: 600;
+    }
+    .form-container button:hover {
+      background-color: #0056b3;
+    }
+
+    .label-sheet {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 0.15cm;
+      width: 21cm;
+      height: 27.7cm;
+      margin: 0 auto;
+      padding: 0.5cm;
+      box-sizing: border-box;
+    }
+
+    .label {
+      background: white;
+      border: 1px solid #d0d0d0;
+      border-radius: 8px;
+      padding: 4px 6px;
+      font-size: 9.5px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
+      align-items: center;
+      line-height: 1.2;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+      height: 3.3cm;
+      position: relative;
+    }
+
+    .delete-label {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(231, 76, 60, 0.9);
+      color: white;
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .label:hover .delete-label {
+      opacity: 1;
+    }
+
+    .product-name {
+      font-weight: 700;
+      font-size: 10.5px;
+      width: 100%;
+      white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      min-height: 2.4em;
+      margin: 2px 0;
+      color: #2c3e50;
+    }
+
+    .price-normal {
+      font-size: 11px;
+      color: #555;
+      margin: 1px 0;
+    }
+
+    .price-offer {
+      font-weight: bold;
+      color: #c0392b;
+      font-size: 13px;
+      margin: 2px 0;
+    }
+
+    .date {
+      font-size: 8px;
+      color: #7f8c8d;
+      margin: 1px 0;
+    }
+
+    .disclaimer {
+      font-size: 7px;
+      color: #95a5a6;
+      margin: 2px 0 0;
+      font-style: italic;
+    }
+
+    .barcode-container {
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    .barcode-container svg {
+      width: 100%;
+      height: 28px;
+    }
+
+    .barcode-number {
+      font-family: 'Courier New', monospace;
+      font-size: 9.5px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 0.5px;
+      margin-top: -1px;
+    }
+
+    .controls {
+      text-align: center;
+      margin: 15px;
+    }
+    .btn {
+      padding: 10px 20px;
+      margin: 0 10px;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .print-btn {
+      background-color: #27ae60;
+      color: white;
+    }
+    .clear-btn {
+      background-color: #e74c3c;
+      color: white;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .warning {
+      color: #e74c3c;
+      font-size: 14px;
+      text-align: center;
+      margin: 10px;
+      font-weight: 500;
+    }
+
+    @media print {
+      .form-container, .controls, .delete-label {
+        display: none !important;
+      }
+      body, .label-sheet {
+        background: white;
+        color: black;
+      }
+      @page {
+        size: letter portrait;
+        margin: 0;
+      }
+      body {
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="form-container">
+  <h2>📝 Agregar Producto</h2>
+  <form id="product-form">
+    <label>Nombre del producto</label>
+    <input type="text" id="nombre" required placeholder="Ej: Auriculares inalámbricos" autofocus>
+
+    <label>Precio normal ($)</label>
+    <input type="number" id="precioNormal" step="0.01" required placeholder="80.00">
+
+    <label>Precio oferta ($)</label>
+    <input type="number" id="precioOferta" step="0.01" required placeholder="59.90">
+
+    <label>Fecha</label>
+    <input type="date" id="fecha" required>
+
+    <label>Código de barras</label>
+    <input type="text" id="codigo" required placeholder="123456789012">
+
+    <button type="submit">➕ Agregar Etiqueta</button>
+  </form>
+</div>
+
+<div id="warning-container"></div>
+
+<div class="controls">
+  <button class="btn print-btn" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn clear-btn" onclick="confirmarLimpiar()">🗑️ Eliminar Todas</button>
+</div>
+
+<div class="label-sheet" id="label-container">
+  <!-- Etiquetas generadas aquí -->
+</div>
+
+<script>
+  const DB_NAME = 'EtiquetasDB';
+  const DB_VERSION = 1;
+  const MAX_ETIQUETAS = 40;
+  let db = null;
+
+  // Inicializar IndexedDB
+  function initDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        db = req.result;
+        cargarProductos().then(resolve);
+      };
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('productos')) {
+          db.createObjectStore('productos', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+    });
+  }
+
+  // Guardar producto
+  function guardarProducto(producto) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('productos', 'readwrite');
+      const store = tx.objectStore('productos');
+      const req = store.add(producto);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Contar productos
+  function contarProductos() {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('productos', 'readonly');
+      const store = tx.objectStore('productos');
+      const req = store.count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Cargar productos
+  async function cargarProductos() {
+    try {
+      const tx = db.transaction('productos', 'readonly');
+      const store = tx.objectStore('productos');
+      const productos = [];
+      store.openCursor().onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          productos.push(cursor.value);
+          cursor.continue();
+        } else {
+          const total = productos.length;
+          actualizarContador(total);
+          generarEtiquetas(productos);
+        }
+      };
+    } catch (e) {
+      console.error("Error al cargar:", e);
+    }
+  }
+
+  // Eliminar todos
+  function eliminarTodosProductos() {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('productos', 'readwrite');
+      const req = tx.objectStore('productos').clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Eliminar uno
+  function eliminarProducto(id) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('productos', 'readwrite');
+      const req = tx.objectStore('productos').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Actualizar advertencia
+  function actualizarContador(total) {
+    const warning = document.getElementById('warning-container');
+    if (total >= MAX_ETIQUETAS) {
+      warning.innerHTML = `<div class="warning">⚠️ Máximo alcanzado: ${MAX_ETIQUETAS}/40 etiquetas</div>`;
+    } else {
+      warning.innerHTML = '';
+    }
+  }
+
+  // Confirmar eliminación total
+  function confirmarLimpiar() {
+    if (confirm("¿Eliminar todas las etiquetas?")) {
+      eliminarTodosProductos()
+        .then(() => {
+          document.getElementById('label-container').innerHTML = '';
+          actualizarContador(0);
+        })
+        .catch(err => alert("Error: " + err));
+    }
+  }
+
+  // Generar etiquetas
+  function generarEtiquetas(lista) {
+    const contenedor = document.getElementById('label-container');
+    contenedor.innerHTML = '';
+
+    lista.forEach(producto => {
+      const label = document.createElement('div');
+      label.className = 'label';
+
+      const fechaFormateada = new Date(producto.fecha).toLocaleDateString('es-ES');
+
+      label.innerHTML = `
+        <button class="delete-label" onclick="eliminarEtiqueta(${producto.id}, event)">✕</button>
+        <div class="product-name">${producto.nombre}</div>
+        <div class="price-normal">Precio: $${producto.precioNormal}</div>
+        <div class="price-offer">OFERTA: $${producto.precioOferta}</div>
+        <div class="date">${fechaFormateada}</div>
+        <div class="disclaimer">No se aceptan devoluciones</div>
+        <div class="barcode-container">
+          <svg class="barcode"></svg>
+          <div class="barcode-number">${producto.codigo}</div>
+        </div>
+      `;
+      contenedor.appendChild(label);
+
+      JsBarcode(label.querySelector('.barcode'), producto.codigo, {
+        format: "CODE128",
+        displayValue: false,
+        width: 2,
+        height: 28
+      });
+    });
+  }
+
+  // Eliminar una etiqueta
+  async function eliminarEtiqueta(id, event) {
+    event.stopPropagation();
+    if (confirm("¿Eliminar esta etiqueta?")) {
+      try {
+        await eliminarProducto(id);
+        await cargarProductos();
+      } catch (err) {
+        alert("Error al eliminar: " + err);
+      }
+    }
+  }
+
+  // Manejo del formulario
+  document.getElementById('product-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = e.target;
+
+    try {
+      // Verificar límite
+      const totalActual = await contarProductos();
+      if (totalActual >= MAX_ETIQUETAS) {
+        alert(`❌ No se pueden agregar más de ${MAX_ETIQUETAS} etiquetas.`);
+        return;
+      }
+
+      // Leer valores
+      const nombre = form.nombre.value.trim();
+      const precioNormal = form.precioNormal.value;
+      const precioOferta = form.precioOferta.value;
+      const fecha = form.fecha.value;
+      const codigo = form.codigo.value.trim();
+
+      if (!nombre || !precioNormal || !precioOferta || !fecha || !codigo) {
+        alert("Todos los campos son obligatorios.");
+        return;
+      }
+
+      // Procesar nombre: agregar RMPC y mayúsculas
+      const nombreCompleto = `RMPC ${nombre.toUpperCase()}`;
+
+      const producto = {
+        nombre: nombreCompleto,
+        precioNormal: parseFloat(precioNormal).toFixed(2),
+        precioOferta: parseFloat(precioOferta).toFixed(2),
+        fecha,
+        codigo
+      };
+
+      // Guardar y regenerar
+      await guardarProducto(producto);
+      await cargarProductos();
+
+      // ✅ Solo limpiar el código de barras
+      form.codigo.value = '';
+      // ✅ Enfocar de nuevo el campo de código para continuar rápido
+      form.codigo.focus();
+
+    } catch (error) {
+      alert("Error: " + (error.message || error));
+    }
+  });
+
+  // Iniciar
+  window.onload = async () => {
+    try {
+      await initDB();
+      await cargarProductos();
+      // Si no hay nombre, enfocar nombre. Si ya hay datos, enfocar código
+      const nombreInput = document.getElementById('nombre');
+      if (!nombreInput.value) {
+        nombreInput.focus();
+      } else {
+        document.getElementById('codigo').focus();
+      }
+    } catch (err) {
+      console.error("Error de base de datos:", err);
+      alert("No se pudo iniciar la base de datos.");
+    }
+  };
+</script>
+
+</body>
+</html>
