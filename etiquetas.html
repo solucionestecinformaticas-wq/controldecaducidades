@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Etiquetas RMPC - Mantener datos</title>
+  <!-- ✅ Corregido: sin espacios en la URL -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 
   <style>
@@ -214,8 +215,42 @@
       font-weight: 500;
     }
 
+    /* ✅ Estilos para el footer (sin Tailwind) */
+    footer {
+      background-color: #1a1a1a;
+      color: #ccc;
+      padding: 20px 0;
+      margin-top: 30px;
+      font-size: 14px;
+    }
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+    }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a {
+      color: #aaa;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    .footer-links a:hover {
+      color: #fff;
+    }
+    .footer-bottom {
+      color: #777;
+      margin-top: 10px;
+    }
+
     @media print {
-      .form-container, .controls, .delete-label {
+      .form-container, .controls, .delete-label, footer {
         display: none !important;
       }
       body, .label-sheet {
@@ -234,6 +269,7 @@
 </head>
 <body>
 
+<!-- FORMULARIO -->
 <div class="form-container">
   <h2>📝 Agregar Producto</h2>
   <form id="product-form">
@@ -256,16 +292,35 @@
   </form>
 </div>
 
+<!-- Advertencia -->
 <div id="warning-container"></div>
 
+<!-- Botones -->
 <div class="controls">
   <button class="btn print-btn" onclick="window.print()">🖨️ Imprimir</button>
   <button class="btn clear-btn" onclick="confirmarLimpiar()">🗑️ Eliminar Todas</button>
 </div>
 
+<!-- Etiquetas -->
 <div class="label-sheet" id="label-container">
-  <!-- Etiquetas generadas aquí -->
+  <!-- Generado dinámicamente -->
 </div>
+
+<!-- ✅ Footer con estilos propios (sin Tailwind) -->
+<footer>
+  <div class="footer-container">
+    <div class="footer-logo" style="font-size: 18px; font-weight: bold; color: white;">
+      SOLTEC
+    </div>
+    <div class="footer-links">
+      <a href="https://solucionestecinformaticas-wq.github.io/controldecaducidades/" target="_blank">Inicio</a>
+      <a href="https://api.whatsapp.com/send?phone=5217201806443&text=Hola%2C%20buen%20día" target="_blank">Contacto</a>
+    </div>
+    <div class="footer-bottom">
+      © 2025 SOLTEC - Todos los derechos reservados
+    </div>
+  </div>
+</footer>
 
 <script>
   const DB_NAME = 'EtiquetasDB';
@@ -430,14 +485,12 @@
     const form = e.target;
 
     try {
-      // Verificar límite
       const totalActual = await contarProductos();
       if (totalActual >= MAX_ETIQUETAS) {
         alert(`❌ No se pueden agregar más de ${MAX_ETIQUETAS} etiquetas.`);
         return;
       }
 
-      // Leer valores
       const nombre = form.nombre.value.trim();
       const precioNormal = form.precioNormal.value;
       const precioOferta = form.precioOferta.value;
@@ -449,7 +502,6 @@
         return;
       }
 
-      // Procesar nombre: agregar RMPC y mayúsculas
       const nombreCompleto = `RMPC ${nombre.toUpperCase()}`;
 
       const producto = {
@@ -460,14 +512,12 @@
         codigo
       };
 
-      // Guardar y regenerar
       await guardarProducto(producto);
       await cargarProductos();
 
-      // ✅ Solo limpiar el código de barras
+      // Solo limpiar el código
       form.codigo.value = '';
-      // ✅ Enfocar de nuevo el campo de código para continuar rápido
-      form.codigo.focus();
+      form.codigo.focus(); // Enfocar código para continuar
 
     } catch (error) {
       alert("Error: " + (error.message || error));
@@ -479,7 +529,6 @@
     try {
       await initDB();
       await cargarProductos();
-      // Si no hay nombre, enfocar nombre. Si ya hay datos, enfocar código
       const nombreInput = document.getElementById('nombre');
       if (!nombreInput.value) {
         nombreInput.focus();
